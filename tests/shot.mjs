@@ -22,9 +22,11 @@ export function serve(port) {
 }
 export async function open(query, opts = {}) {
     const server = await serve(opts.port || 8765);
-    // GPU=1: a real graphics chip (a visible window, the machine's own GPU), for frame rates on a PC; else SwiftShader (no GPU)
+    // GPU=1: the machine's own graphics chip, for frame rates on a PC; else SwiftShader (no GPU)
     const gpu = !!process.env.GPU;
-    const browser = await chromium.launch({ headless: !gpu, args: gpu ? ['--ignore-gpu-blocklist', '--autoplay-policy=no-user-gesture-required']
+    // GPU=1 stays headless (no window) but on the real GPU (ANGLE on D3D11 / the system GL); SHOW=1 opens a window
+    const browser = await chromium.launch({ headless: !process.env.SHOW, channel: gpu ? 'chromium' : undefined,
+        args: gpu ? ['--ignore-gpu-blocklist', '--enable-gpu', '--use-angle=' + (process.platform === 'win32' ? 'd3d11' : 'default'), '--autoplay-policy=no-user-gesture-required']
         : ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--autoplay-policy=no-user-gesture-required'] });
     const page = await browser.newPage({ viewport: { width: opts.w || 1280, height: opts.h || 720 }, deviceScaleFactor: 1 });
     await page.route('**/mypc-sdk.js', r => r.fulfill({ path: SDK, contentType: 'text/javascript' }));
