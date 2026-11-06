@@ -108,6 +108,13 @@ void main() {
   c = mix(c, pc, pav);
   float sunk = max(uSun.y, 0.0);
   vec3 lit = c * (mix(uGround, uSky, 0.8) * 0.55 + uSunCol * sunk * (1.0 - uNight * 0.85));
+  // street lamps at night: warm pools of light every 36 m, alternating sides (world.js places the lamps)
+  if (uNight > 0.5) {
+    float sL = mod(s, 36.0), sR = mod(s - 18.0, 36.0);
+    float pl = exp(-pow(min(sL, 36.0 - sL) / 7.0, 2.0)) * exp(-pow((d - hl) / 7.0, 2.0));
+    float pr = exp(-pow(min(sR, 36.0 - sR) / 7.0, 2.0)) * exp(-pow((d + hr) / 7.0, 2.0));
+    lit += c * vec3(1.0, 0.78, 0.45) * (pl + pr) * 2.2 * uNight;
+  }
   // a soft sheen toward the sun (wet-looking asphalt at grazing angles), cheap
   vec3 v = normalize(cameraPosition - vWp);
   float sh = pow(max(dot(reflect(-v, vec3(0.0, 1.0, 0.0)), uSun), 0.0), 24.0) * 0.25 * (1.0 - pav);
@@ -237,10 +244,11 @@ void main() {
   vec3 v = normalize(cameraPosition - vWp);
   float fres = pow(1.0 - max(dot(n, v), 0.0), 4.0);
   vec3 deep = mix(vec3(0.02, 0.22, 0.36), vec3(0.0, 0.03, 0.06), uNight);
-  vec3 c = mix(deep, uSky * 0.9, fres * 0.8);
+  vec3 c = mix(deep, uSky * 0.75, fres * 0.35);
   float spec = pow(max(dot(reflect(-v, n), uSun), 0.0), 120.0);
   c += uSunCol * spec * 2.0 * (1.0 - uNight);
-  gl_FragColor = vec4(mix(c, uFog, vFog), 1.0);
+  // lighter fog on the water than on land, so the sea keeps its colour and the horizon line shows
+  gl_FragColor = vec4(mix(c, uFog, vFog * 0.55), 1.0);
 }`
     });
 }
@@ -258,12 +266,12 @@ export function glowMaterial() {
 // Points: sparks (additive) and smoke (alpha), size in metres
 export function pointsMaterial(additive) {
     return new THREE.ShaderMaterial({
-        uniforms: { uScale: { value: 600 } },
+        uniforms: { uScale: { value: 600 }, uNight: U.uNight },
         transparent: true, depthWrite: false,
         blending: additive ? THREE.AdditiveBlending : THREE.NormalBlending,
         vertexShader: `attribute vec4 col; attribute float size; uniform float uScale; varying vec4 vCol;
 void main() { vCol = col; vec4 mv = modelViewMatrix * vec4(position, 1.0); gl_Position = projectionMatrix * mv; gl_PointSize = size * uScale / max(1.0, -mv.z); }`,
-        fragmentShader: `varying vec4 vCol; void main() { vec2 p = gl_PointCoord * 2.0 - 1.0; float r = dot(p, p); if (r > 1.0) discard; float a = vCol.a * (1.0 - r); gl_FragColor = vec4(vCol.rgb, a); }`
+        fragmentShader: `uniform float uNight; varying vec4 vCol; void main() { vec2 p = gl_PointCoord * 2.0 - 1.0; float r = dot(p, p); if (r > 1.0) discard; float a = vCol.a * (1.0 - r); float lum = max(vCol.r, max(vCol.g, vCol.b)); vec3 c = vCol.rgb * mix(1.0, 0.3, uNight * step(abs(vCol.r - vCol.b), 0.1)); gl_FragColor = vec4(c, a); }`
     });
 }
 

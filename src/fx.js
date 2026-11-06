@@ -132,6 +132,7 @@ class Debris {
         const kinds = ['debris_bumper', 'debris_door', 'debris_tire', 'debris_spoiler', 'debris_plate'];
         for (let k = 0; k < 10; k++) {
             const m = new THREE.Mesh(partGeometry(kinds[k % kinds.length], 'body'), carMat);
+            m.userData.s0 = kinds[k % kinds.length] === 'debris_tire' ? 0.65 : 0.85;   // pieces in proportion to the cars
             m.visible = false; m.userData.v = new THREE.Vector3(); m.userData.w = new THREE.Vector3(); m.userData.t = 0;
             scene.add(m); this.items.push(m);
         }
@@ -141,9 +142,9 @@ class Debris {
         for (let k = 0; k < n; k++) {
             const m = this.items[this.next]; this.next = (this.next + 1) % this.items.length;
             m.visible = true; m.position.set(x, y + 0.6, z);
-            m.userData.v.set(vx * 0.6 + (Math.random() - 0.5) * 8, 4 + Math.random() * 6, vz * 0.6 + (Math.random() - 0.5) * 8);
+            m.userData.v.set(vx * 0.5 + (Math.random() - 0.5) * 6, 2.5 + Math.random() * 3.5, vz * 0.5 + (Math.random() - 0.5) * 6);
             m.userData.w.set(Math.random() * 10, Math.random() * 10, Math.random() * 10);
-            m.userData.t = 3.5; m.userData.floor = y - 0.4;
+            m.userData.t = 2.2; m.userData.floor = y - 0.4; m.scale.setScalar(m.userData.s0 || 1);
         }
     }
     update(dt) {
@@ -151,6 +152,7 @@ class Debris {
             if (!m.visible) continue;
             const u = m.userData;
             u.t -= dt; if (u.t <= 0) { m.visible = false; continue; }
+            if (u.t < 0.5) m.scale.setScalar(u.s0 * u.t / 0.5);          // shrink away at the end
             u.v.y -= 9.8 * dt;
             m.position.x += u.v.x * dt; m.position.y += u.v.y * dt; m.position.z += u.v.z * dt;
             if (m.position.y < u.floor) { m.position.y = u.floor; u.v.y *= -0.3; u.v.x *= 0.7; u.v.z *= 0.7; u.w.multiplyScalar(0.7); }

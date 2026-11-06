@@ -63,9 +63,10 @@ export async function loadRoutesIndex() {
     return fetch('assets/routes.json?v=' + VERSION).then(r => r.json());
 }
 export async function loadRoute(id) {
-    const [bin, bld] = await Promise.all([
+    const [bin, bld, ter] = await Promise.all([
         fetchBin('assets/routes/' + id + '.bin?v=' + VERSION),
-        fetch('assets/routes/' + id + '.bld.json?v=' + VERSION).then(r => r.ok ? r.json() : []).catch(() => [])
+        fetch('assets/routes/' + id + '.bld.json?v=' + VERSION).then(r => r.ok ? r.json() : []).catch(() => []),
+        fetch('assets/routes/' + id + '.ter.bin?v=' + VERSION).then(r => r.ok ? r.arrayBuffer() : null).catch(() => null)
     ]);
-    return { bin, bld };
+    return { bin, bld, ter };
 }

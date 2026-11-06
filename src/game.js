@@ -39,7 +39,7 @@ export class Session {
         const far = quality.tier === 'low' ? 520 : quality.tier === 'mid' ? 700 : 900;
         U.uFogFar.value = far; U.uFogNear.value = far * 0.3;
         this.far = far; this.detailFar = far * 0.55;
-        this.world = new World(this.scene, this.track, routeData.bld, theme);
+        this.world = new World(this.scene, this.track, routeData.bld, theme, routeData.ter);
         this.race = new Race(this.scene, this.track, opts);
         this.views = this.race.players.map(() => new ChaseCam(16 / 9, far + 60));
         for (const v of this.views) v.shakeOn = quality.tier !== 'low';

@@ -52,7 +52,7 @@ function rng(seed) { let s = seed >>> 0 || 1; return () => { s ^= s << 13; s >>>
 const PALETTE = [[236, 234, 226], [240, 236, 224], [230, 218, 192], [222, 206, 176], [214, 190, 160], [228, 226, 220], [205, 214, 220], [232, 206, 196]];
 
 export class World {
-    constructor(scene, track, bld, theme) {
+    constructor(scene, track, bld, theme, ter) {
         this.scene = scene; this.track = track;
         this.chunks = [];
         this.mats = { world: worldMaterial(), road: roadMaterial(), bld: buildingMaterial() };
@@ -61,6 +61,7 @@ export class World {
         const bByChunk = [];
         for (const b of bld || []) { const c = Math.min(nCh - 1, Math.floor(b[0] / CH)); (bByChunk[c] || (bByChunk[c] = [])).push(b); }
         for (let c = 0; c < nCh; c++) this.chunks.push(this.buildChunk(c, bByChunk[c] || []));
+        this.tiles = ter ? this.buildTerrain(ter) : [];
         // sea: a big plane at sea level (only where there is sea near the route)
         let sea = false;
         for (let i = 0; i < track.n; i++) if (track.flags[i] & 3) { sea = true; break; }
@@ -102,8 +103,12 @@ export class World {
             for (let side = 0; side < 2; side++) {
                 const sg = side ? -1 : 1, hw = side ? hr : hl, arr = side ? T.gr : T.gl;
                 const base = core.count;
+                // on the inside of a bend the strips must stop before the bend's centre, or neighbouring rows
+                // cross and fold into big wedges in the sky
+                const maxOff = this.innerLimit(i, side);
                 for (let k = -1; k < NG; k++) {
-                    const off = k < 0 ? hw + PAVE : hw + G[k];
+                    let off = k < 0 ? hw + PAVE : hw + G[k];
+                    off = Math.min(off, Math.max(hw + PAVE + 0.5 + k, maxOff));   // (the terrain patch fills what is cut off)
                     const h = k < 0 ? y + 0.15 : arr[i * NG + k];
                     let r, g, b;
                     const sand = h < 1.5 && (T.flags[i] & (side ? 2 : 1));
@@ -116,7 +121,7 @@ export class World {
                     core.vert(x + lx * off * sg, h, z + lz * off * sg, 0, 1, 0, r, g, b);
                 }
                 if (i > i0) {
-                    const stride = (NG + 1) * 2 + 0;
+                    const stride = (NG + 1) * 2;
                     const prev = base - stride;
                     for (let k = 0; k < NG; k++) {
                         if (side) core.quad(prev + k, base + k, base + k + 1, prev + k + 1);
@@ -174,14 +179,14 @@ export class World {
                 // palms on the sea side and along the corniche, trees elsewhere (only where there are no buildings)
                 const every = seaSide || this.theme.palms ? 7 : 11;
                 if (i % every === (side ? 3 : 0) && rnd() < 0.85) {
-                    const d = (hw + PAVE + 2.5 + rnd() * 6) * sg;
+                    const off = PAVE + 3 + rnd() * 6, d = (hw + off) * sg;
                     const gx = T.px[i] + lx * d, gz = T.pz[i] + lz * d;
-                    const gy = (side ? T.gr : T.gl)[i * T.meta.ground.length + 1] - 0.1;
-                    if (gy > 0.5) {
+                    const gy = this.groundAt(i, side, off) - 0.15;
+                    if (gy > 0.5 && hw + off + 4 < this.innerLimit(i, side)) {
                         // mostly ordinary trees and bushes; palms only now and then (more along the sea front), all at real sizes
                         const palmP = seaSide ? 0.3 : this.theme.palms ? 0.15 : 0.05, k = rnd();
                         const kind = k < palmP ? (rnd() < 0.5 ? 'palm_tall' : 'palm_detailed')
-                            : k < palmP + 0.3 ? 'tree_oak' : k < palmP + 0.55 ? 'tree_fat' : k < palmP + 0.75 ? 'tree' : 'bush';
+                            : k < palmP + 0.35 ? 'tree_oak' : k < palmP + 0.7 ? 'tree_fat' : 'tree';
                         // models are 9-15 m tall with very wide crowns: palms ~7-8 m, trees ~5-7 m
                         const sc = kind[0] === 'p' ? 0.55 + rnd() * 0.12 : kind === 'tree' ? 0.36 + rnd() * 0.1 : kind === 'bush' ? 0.9 + rnd() * 0.5 : 0.48 + rnd() * 0.14;
                         detail.model(kind, 'body', gx, gy, gz, rnd() * 6.28, sc);
@@ -189,9 +194,9 @@ export class World {
                 }
                 // rocks on the wild coast
                 if (this.theme.rocks && i % 9 === 4 && rnd() < 0.6) {
-                    const d = (hw + PAVE + 8 + rnd() * 20) * sg;
-                    const gy = (side ? T.gr : T.gl)[i * T.meta.ground.length + 2] - 0.4;
-                    detail.model(rnd() < 0.5 ? 'rock_a' : 'rock_tall', 'body', T.px[i] + lx * d, gy, T.pz[i] + lz * d, rnd() * 6.28, 0.7 + rnd());
+                    const off = PAVE + 8 + rnd() * 20, d = (hw + off) * sg;
+                    const gy = this.groundAt(i, side, off) - 0.4;
+                    if (gy > 0.3 && hw + off + 6 < this.innerLimit(i, side)) detail.model(rnd() < 0.5 ? 'rock_a' : 'rock_tall', 'body', T.px[i] + lx * d, gy, T.pz[i] + lz * d, rnd() * 6.28, 0.7 + rnd());
                 }
                 // billboards now and then
                 if (i % 160 === 80 && side === (c & 1)) {
@@ -229,6 +234,67 @@ export class World {
         out.cx = cx / k; out.cy = cy / k; out.cz = cz / k;
         out.r = 0; for (const m of out.meshes) out.r = Math.max(out.r, m.geometry.boundingSphere.radius + m.geometry.boundingSphere.center.distanceTo(new THREE.Vector3(out.cx, out.cy, out.cz)));
         return out;
+    }
+
+    // terrain patch (tools/build-routes.mjs): tiles of 16 x 16 cells, vertex colours by height, slope and theme
+    buildTerrain(buf) {
+        const hd = new Float32Array(buf, 0, 5), x0 = hd[0], z0 = hd[1], C = hd[2], nx = hd[3] | 0, nz = hd[4] | 0;
+        const H = new Int16Array(buf, 20, nx * nz);
+        const at = (i, j) => H[j * nx + i];
+        const tiles = [], TS = 16, dry = this.theme.dry;
+        for (let tj = 0; tj < nz - 1; tj += TS) for (let ti = 0; ti < nx - 1; ti += TS) {
+            const g = new Geo(), idx = new Map();
+            const vtx = (i, j) => {
+                const key = j * nx + i; let v = idx.get(key); if (v !== undefined) return v;
+                const h = at(i, j) / 10;
+                const hx = (at(Math.min(nx - 1, i + 1), j) - at(Math.max(0, i - 1), j)) / 10, hz = (at(i, Math.min(nz - 1, j + 1)) - at(i, Math.max(0, j - 1))) / 10;
+                let ddx = at(Math.min(nx - 1, i + 1), j) === -32768 || at(Math.max(0, i - 1), j) === -32768 ? 0 : hx / (2 * C);
+                let ddz = at(i, Math.min(nz - 1, j + 1)) === -32768 || at(i, Math.max(0, j - 1)) === -32768 ? 0 : hz / (2 * C);
+                const nl = Math.hypot(ddx, 1, ddz), ny = 1 / nl;
+                const nzs = (Math.sin(i * 0.9) + Math.sin(j * 1.3)) * 0.5;
+                let r, gg, b;
+                if (h < 0.5) { r = 196; gg = 182; b = 146; }                          // wet sand under the water's edge
+                else if (h < 3) { r = 220 + nzs * 8; gg = 204 + nzs * 8; b = 160; }   // beach
+                else if (ny < 0.8) { r = 128 + nzs * 10; gg = 116 + nzs * 8; b = 96; } // steep: rock and earth
+                else { r = 100 + nzs * 18; gg = 128 + nzs * 16; b = 68 + nzs * 6; }
+                if (dry && h >= 3) { r += 34; gg += 12; b += 6; }
+                v = g.vert(x0 + i * C, h, z0 + j * C, -ddx / nl, ny, -ddz / nl, r, gg, b);
+                idx.set(key, v); return v;
+            };
+            for (let j = tj; j < Math.min(nz - 1, tj + TS); j++) for (let i = ti; i < Math.min(nx - 1, ti + TS); i++) {
+                if (at(i, j) === -32768 || at(i + 1, j) === -32768 || at(i, j + 1) === -32768 || at(i + 1, j + 1) === -32768) continue;
+                const a = vtx(i, j), b = vtx(i + 1, j), c = vtx(i + 1, j + 1), d = vtx(i, j + 1);
+                g.quad(a, d, c, b);
+            }
+            if (!g.count) continue;
+            const m = new THREE.Mesh(g.build(true), this.mats.world);
+            m.matrixAutoUpdate = false; m.updateMatrix();
+            this.scene.add(m);
+            const bs = m.geometry.boundingSphere;
+            tiles.push({ mesh: m, cx: bs.center.x, cz: bs.center.z, r: bs.radius });
+        }
+        return tiles;
+    }
+
+    // ground height the strips draw at offset `off` beyond the asphalt edge on one side of sample i
+    groundAt(i, side, off) {
+        const T = this.track, G = T.meta.ground, NG = G.length, arr = side ? T.gr : T.gl;
+        if (off <= G[0]) return T.py[i] + 0.15;
+        let k = 1; while (k < NG - 1 && G[k] < off) k++;
+        const t = Math.min(1, (off - G[k - 1]) / (G[k] - G[k - 1]));
+        return arr[i * NG + k - 1] + (arr[i * NG + k] - arr[i * NG + k - 1]) * t;
+    }
+
+    // largest lateral offset on this side that stays clear of the bend's centre (inside of bends only)
+    innerLimit(i, side) {
+        const T = this.track;
+        let worst = 0;
+        for (let j = Math.max(0, i - 12); j <= Math.min(T.n - 1, i + 12); j++) {
+            const c = T.curv[j];
+            // curv > 0 turns right (inside = right, side 1); curv < 0 turns left (inside = left, side 0)
+            if ((c > 0 && side === 1) || (c < 0 && side === 0)) worst = Math.max(worst, Math.abs(c));
+        }
+        return worst > 1e-4 ? 0.7 / worst : 1e9;
     }
 
     gantry(g, i) {
@@ -343,6 +409,7 @@ export class World {
 
     // per frame: hide chunks that are far away; detail meshes have a shorter range
     cull(cx, cz, far, detailFar) {
+        for (let k = 0; k < this.tiles.length; k++) { const t = this.tiles[k]; t.mesh.visible = Math.hypot(t.cx - cx, t.cz - cz) - t.r < far; }
         for (let k = 0; k < this.chunks.length; k++) {
             const c = this.chunks[k];
             const d = Math.hypot(c.cx - cx, c.cz - cz) - c.r;
@@ -355,6 +422,7 @@ export class World {
 
     dispose() {
         for (const c of this.chunks) for (const m of c.meshes) { this.scene.remove(m); m.geometry.dispose(); }
+        for (const t of this.tiles) { this.scene.remove(t.mesh); t.mesh.geometry.dispose(); }
         if (this.sea) { this.scene.remove(this.sea); this.sea.geometry.dispose(); this.sea.material.dispose(); }
         this.scene.remove(this.sky); this.sky.geometry.dispose(); this.sky.material.dispose();
         for (const k in this.mats) this.mats[k].dispose();

@@ -213,8 +213,55 @@ function buildRoute(def) {
         ramps.push({ s, d: +d.toFixed(2), w: 6, len: 11, h: 1.6 });
         lastRamp = s;
     }
+    // terrain patch: a 30 m grid within 600 m of the route. Under the ground strips it follows the strips (a bit
+    // lower, so they win); beyond them it is the real terrain; the sea is under the water plane. The game draws it
+    // in tiles: no gaps on the inside of bends, no scenery standing on nothing.
+    const TC = 30, TR = 600;
+    let tx0 = 1e9, tz0 = 1e9, tx1 = -1e9, tz1 = -1e9;
+    for (const p of pts) { tx0 = Math.min(tx0, p.x); tz0 = Math.min(tz0, p.z); tx1 = Math.max(tx1, p.x); tz1 = Math.max(tz1, p.z); }
+    tx0 = Math.floor((tx0 - TR) / TC) * TC; tz0 = Math.floor((tz0 - TR) / TC) * TC;
+    const tnx = Math.ceil((tx1 + TR - tx0) / TC) + 1, tnz = Math.ceil((tz1 + TR - tz0) / TC) + 1;
+    const tmask = new Uint8Array(tnx * tnz), th = new Int16Array(tnx * tnz).fill(-32768);
+    const RR = Math.ceil(TR / TC);
+    for (let i = 0; i < n; i += 4) {
+        const ci = Math.round((pts[i].x - tx0) / TC), cj = Math.round((pts[i].z - tz0) / TC);
+        for (let a = -RR; a <= RR; a++) for (let b = -RR; b <= RR; b++) {
+            if (a * a + b * b > RR * RR) continue;
+            const ii = ci + a, jj = cj + b; if (ii >= 0 && jj >= 0 && ii < tnx && jj < tnz) tmask[jj * tnx + ii] = 1;
+        }
+    }
+    const tcell = 40, tgridS = new Map();
+    for (let i = 0; i < n; i++) { const key = Math.floor(pts[i].x / tcell) + ',' + Math.floor(pts[i].z / tcell); if (!tgridS.has(key)) tgridS.set(key, []); tgridS.get(key).push(i); }
+    const NGt = GROUND.length;
+    for (let jj = 0; jj < tnz; jj++) for (let ii = 0; ii < tnx; ii++) {
+        if (!tmask[jj * tnx + ii]) continue;
+        const x = tx0 + ii * TC, z = tz0 + jj * TC;
+        const t = terrain(x, z);
+        let h = t < 0.6 ? -2.5 : t;
+        // under the strips of every stretch of road that covers this point: just below the lowest strip height
+        let under = 1e9;
+        const cx = Math.floor(x / tcell), cz = Math.floor(z / tcell);
+        for (let a = -5; a <= 5; a++) for (let b = -5; b <= 5; b++) {
+            const l = tgridS.get((cx + a) + ',' + (cz + b)); if (!l) continue;
+            for (const j of l) {
+                const ex = x - pts[j].x, ez = z - pts[j].z;
+                if (Math.abs(ex * -L[j].lz + ez * L[j].lx) > 16) continue;
+                const dj = ex * L[j].lx + ez * L[j].lz, oj = Math.abs(dj) - hw[j];
+                if (oj > GROUND[NGt - 1] - 4) continue;
+                let g;
+                if (oj <= GROUND[0]) g = y[j] - 0.6;
+                else { const aj = dj >= 0 ? gl : gr; let k = 1; while (k < NGt - 1 && GROUND[k] < oj) k++; const f = Math.min(1, (oj - GROUND[k - 1]) / (GROUND[k] - GROUND[k - 1])); g = aj[j * NGt + k - 1] + (aj[j * NGt + k] - aj[j * NGt + k - 1]) * f; }
+                under = Math.min(under, g - 0.5);
+            }
+        }
+        if (under < 1e8) h = Math.min(h, under);
+        th[jj * tnx + ii] = Math.round(Math.max(-300, Math.min(3000, h * 10)));
+    }
+    const ter = { x0: tx0, z0: tz0, cell: TC, nx: tnx, nz: tnz, h: th };
+
     // buildings near this route (footprints within 160 m of the centre line, not on the road)
     let bld = [];
+    const NG = GROUND.length;
     if (bfile) {
         const cell = 40, grid = new Map();
         for (let i = 0; i < n; i++) { const key = Math.floor(pts[i].x / cell) + ',' + Math.floor(pts[i].z / cell); if (!grid.has(key)) grid.set(key, []); grid.get(key).push(i); }
@@ -244,14 +291,45 @@ function buildRoute(def) {
             let h = b.h || (b.lv ? b.lv * 3.2 + 1 : 0);
             if (!h) { const r = ((Math.abs(Math.round(cx * 13 + cz * 7))) % 100) / 100; h = area > 600 ? 9 + r * 12 : 6 + r * 9; }
             h = Math.min(h, 80);
-            const base = Math.min(...poly.map(p => terrain(p.x, p.z)));
+            // stand on the ground the game draws (the ground strips), not on raw terrain: no floating buildings,
+            // and none past the end of the strips or over the sea
+            let base = 1e9, bad = false;
+            for (const p of poly) {
+                const [pi] = near(p.x, p.z);
+                const dx = p.x - pts[pi].x, dz = p.z - pts[pi].z;
+                const d = dx * L[pi].lx + dz * L[pi].lz, off = Math.abs(d) - hw[pi];
+                if (off > GROUND[GROUND.length - 1] - 8) { bad = true; break; }
+                const arr = d >= 0 ? gl : gr;
+                let g;
+                if (off <= GROUND[0]) g = y[pi] + 0.15;
+                else { let k = 1; while (k < NG - 1 && GROUND[k] < off) k++; const a = GROUND[k - 1], b = GROUND[k], t = Math.min(1, (off - a) / (b - a)); g = arr[pi * NG + k - 1] + (arr[pi * NG + k] - arr[pi * NG + k - 1]) * t; }
+                if (g < 0.5) { bad = true; break; }
+                base = Math.min(base, g);
+                // the strips of any other stretch of the route that covers this point must be land too (a curved
+                // route lays sea strips across buildings that are near a different part of it)
+                const gx0 = Math.floor(p.x / cell), gz0 = Math.floor(p.z / cell);
+                for (let a = -5; a <= 5 && !bad; a++) for (let b2 = -5; b2 <= 5 && !bad; b2++) {
+                    const l = grid.get((gx0 + a) + ',' + (gz0 + b2)); if (!l) continue;
+                    for (const j of l) {
+                        const ex = p.x - pts[j].x, ez = p.z - pts[j].z;
+                        const along = ex * -L[j].lz + ez * L[j].lx;     // forward = (-lz, lx)
+                        if (Math.abs(along) > 1.5) continue;
+                        const dj = ex * L[j].lx + ez * L[j].lz, oj = Math.abs(dj) - hw[j];
+                        if (oj < GROUND[1] || oj > GROUND[GROUND.length - 1]) continue;
+                        const aj = dj >= 0 ? gl : gr; let k = 1; while (k < NG - 1 && GROUND[k] < oj) k++;
+                        if (Math.min(aj[j * NG + k - 1], aj[j * NG + k]) < 0.5) { bad = true; break; }
+                    }
+                }
+                if (bad) break;
+            }
+            if (bad) continue;
             bld.push({ i: bi, h: +h.toFixed(1), y: +base.toFixed(2), p: poly.map(p => [+p.x.toFixed(2), +p.z.toFixed(2)]) });
         }
         bld.sort((a, b) => a.i - b.i);
         // keep the budget: at most ~2600 buildings per route, the closest first
         if (bld.length > 2600) bld = bld.slice(0, 2600);
     }
-    return { def, pts, y, hw, gl, gr, flags, ramps, closed, names, bld, n };
+    return { def, pts, y, hw, gl, gr, flags, ramps, closed, names, bld, n, ter };
 }
 
 function writeRoute(R) {
@@ -270,6 +348,9 @@ function writeRoute(R) {
     // buildings: compact JSON (Int16 decimetres would be smaller, JSON keeps it simple and gzip does well on Pages)
     const bl = R.bld.map(b => [b.i, b.h, b.y, b.p.flat()]);
     fs.writeFileSync(`assets/routes/${R.def.id}.bld.json`, JSON.stringify(bl));
+    // terrain patch: header (x0, z0, cell, nx, nz as Float32) + Int16 heights in decimetres (-32768 = none)
+    const T = R.ter, head = new Float32Array([T.x0, T.z0, T.cell, T.nx, T.nz]);
+    fs.writeFileSync(`assets/routes/${R.def.id}.ter.bin`, Buffer.concat([Buffer.from(head.buffer), Buffer.from(T.h.buffer)]));
     // minimap: every 10th sample
     const mm = [];
     for (let i = 0; i < n; i += 10) mm.push(Math.round(R.pts[i].x), Math.round(R.pts[i].z));
