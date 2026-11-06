@@ -16,8 +16,8 @@ export const THEMES = {
 
 export function setTime(kind) {
     if (kind === 'night') {
-        U.uSun.value.set(-0.3, 0.55, 0.4).normalize(); U.uSunCol.value.setRGB(0.45, 0.5, 0.7);
-        U.uSky.value.setRGB(0.12, 0.16, 0.3); U.uGround.value.setRGB(0.1, 0.09, 0.1); U.uFog.value.setRGB(0.07, 0.09, 0.16); U.uNight.value = 1;
+        U.uSun.value.set(-0.3, 0.55, 0.4).normalize(); U.uSunCol.value.setRGB(0.7, 0.75, 0.95);
+        U.uSky.value.setRGB(0.3, 0.36, 0.55); U.uGround.value.setRGB(0.2, 0.17, 0.16); U.uFog.value.setRGB(0.07, 0.09, 0.16); U.uNight.value = 1;
     } else if (kind === 'sunset') {
         U.uSun.value.set(-0.6, 0.22, -0.7).normalize(); U.uSunCol.value.setRGB(1.0, 0.72, 0.45);
         U.uSky.value.setRGB(0.6, 0.6, 0.78); U.uGround.value.setRGB(0.4, 0.3, 0.26); U.uFog.value.setRGB(0.93, 0.72, 0.6); U.uNight.value = 0.15;

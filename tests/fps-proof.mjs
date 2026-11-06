@@ -10,20 +10,21 @@ fs.mkdirSync(outDir, { recursive: true });
 const runs = queries.length ? queries : ['?dev=corniche&bot', '?dev=kawassim&bot&car=gt', '?dev=achakar&bot&car=future', '?dev=harris&bot&2p'];
 const rows = [];
 for (const q of runs) {
-    const s = await open(q + '&proof=1', { w: 1280, h: 720 });
+    const W = +(process.env.W || 1280), H = Math.round(W * 9 / 16);
+    const s = await open(q + '&proof=1', { w: W, h: H });
     const cdp = await s.page.context().newCDPSession(s.page);
     await cdp.send('Emulation.setCPUThrottlingRate', { rate: +thr });
     await s.page.waitForFunction(() => window.TA && TA.session && TA.state === 'race', null, { timeout: 90000 });
     await s.page.waitForTimeout(6000);                 // countdown + start
-    await s.page.evaluate(() => { TA.fpsLog.length = 0; TA.workLog.length = 0; });
+    await s.page.evaluate(() => { TA.fpsLog.length = 0; TA.workLog.length = 0; TA.logicLog.length = 0; });
     await s.page.waitForTimeout(+secs * 1000);
     const r = await s.page.evaluate(() => {
         const f = TA.fpsLog.slice(), w = TA.workLog.slice(), n = f.length, sum = f.reduce((a, b) => a + b, 0);
         const ws = w.slice().sort((a, b) => a - b), fs2 = f.slice().sort((a, b) => a - b);
-        const info = TA.renderer.info.render, S = TA.session;
+        const info = TA.renderer.info.render, S = TA.session; const lg = TA.logicLog.slice().sort((a, b) => a - b);
         return { frames: n, fps: +(n / (sum / 1000)).toFixed(1), late: +(100 * f.filter(x => x > 20).length / n).toFixed(1),
             p95: +fs2[Math.floor(n * 0.95)].toFixed(1), workAvg: +(w.reduce((a, b) => a + b, 0) / n).toFixed(2), workP95: +ws[Math.floor(n * 0.95)].toFixed(2),
-            calls: info.calls, tris: info.triangles, scale: S.scale, size: TA.renderer.domElement.width + 'x' + TA.renderer.domElement.height,
+            logicPerTick: +(lg.reduce((a, b) => a + b, 0) / (sum / (1000 / 60))).toFixed(2), logicP95: +lg[Math.floor(n * 0.95)].toFixed(2), calls: info.calls, tris: info.triangles, scale: S.scale, size: TA.renderer.domElement.width + 'x' + TA.renderer.domElement.height,
             place: S.race.players.map(p => p.place + '/' + S.race.racers.length).join(' '), kmh: S.race.players.map(p => Math.round(p.veh.fwdSpeed * 3.6)).join(' ') };
     });
     const name = q.replace(/[?&=]/g, '_').replace(/^_/, '');

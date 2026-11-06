@@ -16,7 +16,7 @@ const App = {
     renderer: null, canvas: null, info: null, quality: null,
     input: new Input(), session: null, routes: null, hud: null, ui: null, sound: null, career: null, showroom: null,
     raf: 0, last: 0, acc: 0, running: false, frameMs: 0, state: 'boot', paused: false,
-    fpsLog: [], workLog: []
+    fpsLog: [], workLog: [], logicLog: [], resizes: 0
 };
 window.TA = App;   // for the performance proof (tests/fps-proof.mjs)
 
@@ -42,6 +42,7 @@ function makeRenderer() {
 }
 
 function resize() {
+    App.resizes++;
     const s = App.session ? App.session.scale : App.quality.scale;
     const w = Math.round(1920 * s * Math.min(1, window.innerWidth / 1920 * 1.5)), h = Math.round(w * window.innerHeight / window.innerWidth);
     App.renderer.setSize(w, h, false);
@@ -58,10 +59,11 @@ function frame(ts) {
     App.acc += Math.min(100, ms);
     let n = 0;
     while (App.acc >= STEP * 1000 - 0.5 && n < 4) { update(STEP); App.acc -= STEP * 1000; n++; }
+    const t1 = performance.now();
     if (App.acc > STEP * 1000 * 2) App.acc = 0;
     draw(ms);
     App.frameMs = ms;
-    if (App.fpsLog.length < 20000) { App.fpsLog.push(ms); App.workLog.push(performance.now() - t0); }
+    if (App.fpsLog.length < 20000) { App.fpsLog.push(ms); App.workLog.push(performance.now() - t0); App.logicLog.push(t1 - t0); }
 }
 function startLoop() { if (!App.raf) { App.last = 0; App.acc = 0; App.raf = requestAnimationFrame(frame); } App.running = true; }
 function stopLoop() { if (App.raf) cancelAnimationFrame(App.raf); App.raf = 0; App.running = false; }
