@@ -178,9 +178,13 @@ export class World {
                     const gx = T.px[i] + lx * d, gz = T.pz[i] + lz * d;
                     const gy = (side ? T.gr : T.gl)[i * T.meta.ground.length + 1] - 0.1;
                     if (gy > 0.5) {
-                        const kind = seaSide || this.theme.palms ? (rnd() < 0.5 ? 'palm_tall' : rnd() < 0.5 ? 'palm_detailed' : 'palm_bend')
-                            : urban ? (rnd() < 0.6 ? 'palm_tall' : 'tree_oak') : (rnd() < 0.4 ? 'tree' : rnd() < 0.5 ? 'tree_fat' : 'bush');
-                        detail.model(kind, 'body', gx, gy, gz, rnd() * 6.28, 0.8 + rnd() * 0.5);
+                        // mostly ordinary trees and bushes; palms only now and then (more along the sea front), all at real sizes
+                        const palmP = seaSide ? 0.3 : this.theme.palms ? 0.15 : 0.05, k = rnd();
+                        const kind = k < palmP ? (rnd() < 0.5 ? 'palm_tall' : 'palm_detailed')
+                            : k < palmP + 0.3 ? 'tree_oak' : k < palmP + 0.55 ? 'tree_fat' : k < palmP + 0.75 ? 'tree' : 'bush';
+                        // models are 9-15 m tall with very wide crowns: palms ~7-8 m, trees ~5-7 m
+                        const sc = kind[0] === 'p' ? 0.55 + rnd() * 0.12 : kind === 'tree' ? 0.36 + rnd() * 0.1 : kind === 'bush' ? 0.9 + rnd() * 0.5 : 0.48 + rnd() * 0.14;
+                        detail.model(kind, 'body', gx, gy, gz, rnd() * 6.28, sc);
                     }
                 }
                 // rocks on the wild coast
