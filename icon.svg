@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0b1730"/><stop offset="0.55" stop-color="#1d3a6b"/><stop offset="1" stop-color="#f08a24"/></linearGradient>
+    <linearGradient id="road" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2a2d34"/><stop offset="1" stop-color="#14161a"/></linearGradient>
+    <linearGradient id="fl" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#2ad4ff" stop-opacity="0"/><stop offset="1" stop-color="#7ff0ff"/></linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="96" fill="url(#sky)"/>
+  <circle cx="380" cy="250" r="54" fill="#ffb347" opacity="0.9"/>
+  <path d="M0 300 L120 268 L180 282 L260 262 L330 276 L420 258 L512 270 L512 330 L0 330 Z" fill="#162a4a"/>
+  <rect x="0" y="318" width="512" height="18" fill="#2e6fa8" opacity="0.8"/>
+  <path d="M206 330 L306 330 L470 512 L42 512 Z" fill="url(#road)"/>
+  <path d="M254 334 L258 334 L262 360 L250 360 Z M247 380 L265 380 L270 420 L242 420 Z M236 446 L276 446 L284 512 L228 512 Z" fill="#ffd23f"/>
+  <path d="M206 330 L42 512 L70 512 L214 330 Z M306 330 L470 512 L442 512 L298 330 Z" fill="#e8e8e8"/>
+  <g transform="translate(256 430)">
+    <path d="M-150 -6 L-70 -6 L-70 6 L-150 6 Z" fill="url(#fl)" transform="translate(0 30)"/>
+    <path d="M-92 40 L-86 4 L-60 -18 L60 -18 L86 4 L92 40 L92 58 L-92 58 Z" fill="#e8331f"/>
+    <path d="M-52 -14 L-34 -42 L34 -42 L52 -14 Z" fill="#9fd8ff"/>
+    <rect x="-80" y="22" width="34" height="10" rx="3" fill="#ffe9a6"/>
+    <rect x="46" y="22" width="34" height="10" rx="3" fill="#ffe9a6"/>
+    <rect x="-96" y="50" width="34" height="26" rx="6" fill="#111"/>
+    <rect x="62" y="50" width="34" height="26" rx="6" fill="#111"/>
+  </g>
+  <text x="256" y="128" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-style="italic" font-size="96" text-anchor="middle" fill="#ffffff">TANGIER</text>
+  <text x="256" y="196" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-style="italic" font-size="60" letter-spacing="10" text-anchor="middle" fill="#ff7a1a">ASPHALT</text>
+</svg>

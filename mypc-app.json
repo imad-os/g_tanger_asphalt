@@ -1,0 +1,12 @@
+{
+  "mypc": 1,
+  "id": "tangier-asphalt",
+  "name": "Tangier Asphalt",
+  "description": "Street racing on real Tangier roads: nitro, drifts, jumps, takedowns, career and 2-player split screen",
+  "type": "game",
+  "entry": "index.html",
+  "icon": "icon.svg",
+  "version": "0.1.0",
+  "scores": true,
+  "config": { "orientation": "landscape" }
+}

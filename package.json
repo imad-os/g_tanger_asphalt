@@ -7,6 +7,7 @@
     "models": "node tools/build-models.mjs"
   },
   "devDependencies": {
+    "@fontsource/chakra-petch": "^5.1.0",
     "esbuild": "^0.24.0",
     "pngjs": "^7.0.0",
     "three": "^0.170.0"
