@@ -21,7 +21,10 @@ export function serve(port) {
 }
 export async function open(query, opts = {}) {
     const server = await serve(opts.port || 8765);
-    const browser = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--autoplay-policy=no-user-gesture-required'] });
+    // GPU=1: a real graphics chip (a visible window, the machine's own GPU), for frame rates on a PC; else SwiftShader (no GPU)
+    const gpu = !!process.env.GPU;
+    const browser = await chromium.launch({ headless: !gpu, args: gpu ? ['--ignore-gpu-blocklist', '--autoplay-policy=no-user-gesture-required']
+        : ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--autoplay-policy=no-user-gesture-required'] });
     const page = await browser.newPage({ viewport: { width: opts.w || 1280, height: opts.h || 720 }, deviceScaleFactor: 1 });
     await page.route('**/mypc-sdk.js', r => r.fulfill({ path: SDK, contentType: 'text/javascript' }));
     let nlog = 0; page.on('console', m => { if (nlog++ > 40) return; if (m.type() === 'error' || m.type() === 'warning' || opts.log) console.log('[page]', m.type(), m.text().slice(0, 300)); });
