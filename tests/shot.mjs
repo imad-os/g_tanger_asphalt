@@ -5,7 +5,8 @@ const { chromium } = createRequire(import.meta.url)('playwright');
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
-const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
+import { fileURLToPath } from 'node:url';
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');   // works on Windows too
 const SDK = process.env.SDK || '/home/user/g/sdk/mypc-sdk.js';
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.bin': 'application/octet-stream', '.woff2': 'font/woff2', '.ogg': 'audio/ogg', '.svg': 'image/svg+xml', '.png': 'image/png' };
 export function serve(port) {
