@@ -337,6 +337,9 @@ export class UI {
                 this.btn(t('controls') + ' — ' + t('p2'), () => this.controls(1)),
                 this.opt(t('graphics'), [{ v: 'auto', l: t('auto') }, { v: 'low', l: t('low') }, { v: 'mid', l: t('mid') }, { v: 'high', l: t('high') }], () => s.quality, v => { s.quality = v; save(); this.app.setQuality && this.app.setQuality(v); }),
                 this.opt(t('fps'), [{ v: 0, l: t('off') }, { v: 1, l: t('on') }], () => s.fps, v => { s.fps = v; save(); }),
+                // sound mix (on top of My PC's own volumes): ◀ ▶ in steps of 10 %
+                ...['engine', 'sfx', 'music'].map(k => this.opt(t('vol_' + k), [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1].map(v => ({ v, l: Math.round(v * 100) + ' %' })),
+                    () => s.mix[k], v => { s.mix[k] = v; save(); this.app.sound.setMix(s.mix); if (k === 'sfx') this.app.sound.ui('switch'); })),
                 h('div', { class: 'credits' }, h('b', null, t('credits_title')), ' ', t('creditsText'))
             )), { back: () => this.home() });
     }

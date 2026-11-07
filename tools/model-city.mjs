@@ -85,7 +85,7 @@ export function cityCar() {
         return s.pts.map(([x, y]) => {
             // wheel wells: the side is pushed in where it would cover a wheel
             let well = false;
-            for (const az of [AXLE.zf, AXLE.zr]) if (Math.hypot(z - az, y - AXLE.y) < AXLE.arch && x > 0.5) well = true;
+            for (const az of [AXLE.zf, AXLE.zr]) if (Math.hypot(z - az, y - AXLE.y) < AXLE.arch + 0.03 && x > 0.5) well = true;
             return { p: [x, y, z], raw: [x, y, z], well };
         });
     });
@@ -135,7 +135,7 @@ export function cityCar() {
 
     // ---- wheel arch cladding: a black band around each opening and a lip into the well ----
     for (const az of [AXLE.zf, AXLE.zr]) {
-        const ra = AXLE.arch, w = 0.075, N = 16;
+        const ra = AXLE.arch, w = 0.1, N = 20;
         for (let j = 0; j < N; j++) {
             const t0 = -0.18 + (Math.PI + 0.36) * j / N, t1 = -0.18 + (Math.PI + 0.36) * (j + 1) / N;
             const pt = (t, r, dx) => { const z = az + Math.cos(t) * r, y = AXLE.y + Math.sin(t) * r; return [sideX(z, Math.max(0.2, y)) + dx, y, z]; };

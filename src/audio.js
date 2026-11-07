@@ -8,7 +8,7 @@ const SFX = ['impactMetal_heavy_000', 'impactMetal_heavy_001', 'impactMetal_heav
     'impactPlate_heavy_000', 'select_001', 'confirmation_001', 'back_001', 'switch_001', 'explosionCrunch_000', 'forceField_000'];
 
 export class Sound {
-    constructor(vol) { this.vol = { music: vol.music ?? 0.7, sfx: vol.sfx ?? 0.8 }; this.ctx = null; this.buf = {}; this.engines = []; this.music = null; this.musicName = ''; }
+    constructor(vol) { this.vol = { music: vol.music ?? 0.7, sfx: vol.sfx ?? 0.8 }; this.mix = { engine: 1, sfx: 1, music: 1 }; this.ctx = null; this.buf = {}; this.engines = []; this.music = null; this.musicName = ''; }
     start() {
         if (this.ctx) return;
         const AC = window.AudioContext || window.webkitAudioContext;
@@ -30,18 +30,20 @@ export class Sound {
         this.musicName = name;
         if (!this.music) { this.music = new Audio(); this.music.loop = true; }
         this.music.src = 'assets/music/' + name + '.ogg?v=' + VERSION;
-        this.music.volume = this.vol.music * 0.45;
+        this.music.volume = this.vol.music * 0.45 * this.mix.music;
         const p = this.music.play(); if (p && p.catch) p.catch(() => {});
     }
     volume(v) {
         this.vol = { music: v.music ?? this.vol.music, sfx: v.sfx ?? this.vol.sfx };
         if (this.master) this.master.gain.value = this.vol.sfx;
-        if (this.music) this.music.volume = this.vol.music * 0.45;
+        if (this.music) this.music.volume = this.vol.music * 0.45 * this.mix.music;
     }
+    // the game's own mix (Settings > Sound), on top of My PC's volumes: engine, effects, music (0..1)
+    setMix(m) { this.mix = { engine: m.engine ?? 1, sfx: m.sfx ?? 1, music: m.music ?? 1 }; this.volume({}); }
     play(name, gain, rate) {
         const b = this.buf[name]; if (!b || !this.ctx) return;
         const s = this.ctx.createBufferSource(); s.buffer = b; s.playbackRate.value = rate || 1;
-        const g = this.ctx.createGain(); g.gain.value = gain === undefined ? 1 : gain;
+        const g = this.ctx.createGain(); g.gain.value = (gain === undefined ? 1 : gain) * this.mix.sfx;
         s.connect(g); g.connect(this.master); s.start();
     }
     ui(kind) { this.play(kind === 'ok' ? 'confirmation_001' : kind === 'back' ? 'back_001' : kind === 'switch' ? 'switch_001' : 'select_001', 0.5); }
@@ -118,17 +120,17 @@ export class Sound {
             e.wk.rpm.setValueAtTime(wrecked ? 800 : rpm, t);
             e.wk.load.setValueAtTime(load, t);
             e.wk.speed.setValueAtTime(me ? v.speed : 0, t);
-            e.wk.gain.setTargetAtTime(wrecked ? 0.15 * k : (v.spec.ev ? 0.9 : 0.55 + 0.25 * load) * k, t, 0.05);
+            e.wk.gain.setTargetAtTime((wrecked ? 0.15 * k : (v.spec.ev ? 0.9 : 0.55 + 0.25 * load) * k) * this.mix.engine, t, 0.05);
         }
         const f0 = 28 + rpm / 60 * 1.6;
         e.o1.frequency.setTargetAtTime(f0, t, 0.03);
         e.o2.frequency.setTargetAtTime(f0 * 0.5, t, 0.03);
         e.f.frequency.setTargetAtTime(300 + rpm * 0.32 * (0.5 + thr * 0.5), t, 0.05);
-        e.g.gain.setTargetAtTime(wrecked ? 0.02 : (0.1 + thr * 0.14) * k, t, 0.05);
+        e.g.gain.setTargetAtTime((wrecked ? 0.02 : (0.1 + thr * 0.14) * k) * this.mix.engine, t, 0.05);
         let slide = 0; for (let i = 0; i < 4; i++) { const w = v.wheels[i]; if (w.contact) slide = Math.max(slide, w.slipLat, w.slipLong); }
-        e.tg.gain.setTargetAtTime(slide > 0.3 && v.speed > 5 ? Math.min(0.22, (slide - 0.3) * 0.4) * k : 0, t, 0.04);
-        e.wg.gain.setTargetAtTime(me ? Math.min(0.18, v.speed * v.speed * 0.00002) * k : 0, t, 0.1);
-        e.ngn.gain.setTargetAtTime(v.nitroOn ? 0.16 * k * Math.min(1.6, v.nitroOn) : 0, t, 0.06);
+        e.tg.gain.setTargetAtTime(slide > 0.3 && v.speed > 5 ? Math.min(0.22, (slide - 0.3) * 0.4) * k * this.mix.sfx : 0, t, 0.04);
+        e.wg.gain.setTargetAtTime(me ? Math.min(0.18, v.speed * v.speed * 0.00002) * k * this.mix.sfx : 0, t, 0.1);
+        e.ngn.gain.setTargetAtTime(v.nitroOn ? 0.16 * k * Math.min(1.6, v.nitroOn) * this.mix.sfx : 0, t, 0.06);
         e.nf.frequency.setTargetAtTime(v.nitroOn > 1.5 ? 600 : 1100, t, 0.1);
     }
     event(kind, r, x, session) {

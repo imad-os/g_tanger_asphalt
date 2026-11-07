@@ -36,7 +36,7 @@ export class Career {
         const ids = CARS.map(c => c.id), known = id => ids.includes(id);   // saves from before the car list changed
         this.d = {
             stars: d.stars || {}, credits: d.credits || 3000, owned: ['city', 'hatch'].concat((d.owned || []).filter(id => known(id) && id !== 'city' && id !== 'hatch')), up: d.up || {}, paint: d.paint || {}, roof: d.roof || {},
-            car: known(d.car) ? d.car : 'city', best: d.best || {}, settings: Object.assign({ quality: 'auto', fps: 0, units: 'kmh', easy: [0, 0], esc: [1, 1], cam: 0 }, d.settings || {})
+            car: known(d.car) ? d.car : 'city', best: d.best || {}, settings: Object.assign({ quality: 'auto', fps: 0, units: 'kmh', easy: [0, 0], esc: [1, 1], cam: 0, mix: { engine: 1, sfx: 1, music: 1 } }, d.settings || {})
         };
         this.events = [];
         const modes = ['race', 'takedown', 'time'];

@@ -143,6 +143,7 @@ MyPC.init({
             App.career = new Career(MyPC.load('career', null), App.routes);
             App.hud = new Hud(document.getElementById('hud'));
             App.sound = new Sound(info.volume || { music: 0.7, sfx: 0.8 });
+            App.sound.setMix(App.career.d.settings.mix);
             App.showroom = new Showroom(App.quality);
             App.ui = new UI(App, document.getElementById('ui'));
             App.input.menuCb = (a, dev, rep) => App.ui.input(a, dev, rep);
