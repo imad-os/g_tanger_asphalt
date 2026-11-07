@@ -23,8 +23,10 @@ export function defaultMap() {
         camera: [{ b: 3 }, { b: 11 }]
     };
 }
+const KEY_NAMES = { ArrowUp: '↑', ArrowDown: '↓', ArrowLeft: '←', ArrowRight: '→', Space: 'Space', Enter: 'Enter', ShiftLeft: 'Shift', ShiftRight: 'R Shift', ControlLeft: 'Ctrl', ControlRight: 'R Ctrl', AltLeft: 'Alt', AltRight: 'R Alt' };
 export function bindLabel(b) {
     if (!b) return '—';
+    if (b.c) return '⌨ ' + (KEY_NAMES[b.c] || b.c.replace(/^Key|^Digit/, '').replace(/^Numpad/, 'Num '));
     if (b.b !== undefined) return PAD_NAMES[b.b] || ('Button ' + b.b);
     if (b.a !== undefined) return (b.a < 2 ? 'L stick ' : 'R stick ') + (b.a % 2 === 0 ? (b.s < 0 ? '◀' : '▶') : (b.s < 0 ? '▲' : '▼'));
     if (b.k) return ACT_NAMES[b.k] || b.k;
@@ -41,6 +43,8 @@ class Player {
         this.lastNitroDown = -1;
         this.double = false;
         this.auto = true;            // auto accelerate
+        this.curve = 1.4;            // steering response: 1 direct ... 2 gentle near the centre
+        this.dead = 0.15;            // stick dead zone
     }
 }
 
@@ -49,10 +53,18 @@ export class Input {
         this.players = [new Player(), new Player()];
         this.pads = {};             // dev -> { b: Float32Array(24), a: Float32Array(4) }
         this.acts = {};             // dev -> { action: true }
-        this.capture = null;        // { player, action, slot, until, cb }
+        this.capture = null;        // { player, action, slot, until, cb, held, best }
+        this.keys = {};             // keyboard keys held (KeyboardEvent.code), when the page gets them itself
         this.join = null;           // function(dev) during the 2-player lobby
         this.menuCb = null;         // function(action, dev) for menus
         this.time = 0;
+        this.onKey = (e) => {
+            const down = e.type === 'keydown';
+            if (down && e.repeat) return;
+            this.keys[e.code] = down;
+            if (this.capture) { if (down) this.offer({ c: e.code }, 3, 'key:' + e.code); else this.capture.held.delete('key:' + e.code); }
+        };
+        window.addEventListener('keydown', this.onKey); window.addEventListener('keyup', this.onKey);
     }
     load(saved) {
         if (!saved) return;
@@ -61,9 +73,11 @@ export class Input {
             for (const k of ACTIONS) if (Array.isArray(saved[p].map && saved[p].map[k])) m[k] = saved[p].map[k];
             this.players[p].map = m;
             this.players[p].auto = saved[p].auto !== false;
+            if (saved[p].curve) this.players[p].curve = saved[p].curve;
+            if (saved[p].dead !== undefined) this.players[p].dead = saved[p].dead;
         }
     }
-    save() { return this.players.map(p => ({ map: p.map, auto: p.auto })); }
+    save() { return this.players.map(p => ({ map: p.map, auto: p.auto, curve: p.curve, dead: p.dead })); }
 
     pad(dev) { return this.pads[dev] || (this.pads[dev] = { b: new Float32Array(24), a: new Float32Array(4) }); }
     owner(dev) {
@@ -79,9 +93,10 @@ export class Input {
         if (repeat) { if (this.menuCb) this.menuCb(action, dev, true); return; }
         a[action] = pressed;
         if (pressed && this.join && this.join(dev, 'act:' + action)) return;
-        if (pressed && this.capture && (this.capture.dev === undefined || this.capture.dev === dev || this.owner(dev) === this.capture.player)) {
-            if (action === 'confirm') return;     // OK is reported as confirm + jump: keep the jump
-            this.finishCapture({ k: action });
+        if (this.capture && this.mine(dev)) {
+            // OK comes as confirm + jump: the jump is preferred; a pad or keyboard key reported at the same time wins
+            if (pressed) this.offer({ k: action }, action === 'confirm' ? 0 : 1, 'act:' + action);
+            else this.capture.held.delete('act:' + action);
             return;
         }
         if (pressed && this.menuCb) this.menuCb(action, dev, false);
@@ -90,29 +105,56 @@ export class Input {
         const p = this.pad(dev);
         p.b[i] = pressed ? Math.max(0.01, value || 1) : 0;
         if (pressed && this.join && this.join(dev, 'btn:' + i)) return;
-        if (pressed && this.capture && (this.owner(dev) === this.capture.player || this.capture.any)) {
-            if (i === 16) return;
-            this.finishCapture({ b: i });
+        if (this.capture && this.mine(dev)) {
+            if (pressed) this.offer({ b: i }, 2, dev + ':b' + i); else this.capture.held.delete(dev + ':b' + i);
         }
     }
     onAxes(axes, dev) {
         const p = this.pad(dev);
         for (let k = 0; k < 4 && k < axes.length; k++) {
             const v = axes[k];
-            if (this.capture && Math.abs(v) > 0.7 && Math.abs(p.a[k]) <= 0.7 && (this.owner(dev) === this.capture.player || this.capture.any)) {
-                p.a[k] = v; this.finishCapture({ a: k, s: v < 0 ? -1 : 1 });
+            if (this.capture && this.mine(dev)) {
+                const id = dev + ':a' + k + (v < 0 ? '-' : '+');
+                if (Math.abs(v) > 0.7 && Math.abs(p.a[k]) <= 0.7) this.offer({ a: k, s: v < 0 ? -1 : 1 }, 2, id);
+                if (Math.abs(v) < 0.3) { this.capture.held.delete(dev + ':a' + k + '-'); this.capture.held.delete(dev + ':a' + k + '+'); }
             }
             p.a[k] = v;
         }
     }
-    startCapture(player, action, slot, cb) {
-        this.capture = { player, action, slot, until: this.time + 5, cb };
+    mine(dev) { return this.capture.player === 0 ? this.owner(dev) !== 1 : this.owner(dev) === 1 || !this.players[1].devs; }
+    // listen for the next button of ANY kind (pad button, trigger, stick direction, remote / keyboard key) for
+    // `secs` seconds. Whatever is already held when it starts (the OK that opened it) is ignored until released.
+    startCapture(player, action, slot, cb, secs) {
+        const held = new Set();
+        for (const dev in this.pads) {
+            const pd = this.pads[dev];
+            for (let i = 0; i < pd.b.length; i++) if (pd.b[i] > 0) held.add(dev + ':b' + i);
+            for (let k = 0; k < 4; k++) if (Math.abs(pd.a[k]) > 0.5) held.add(dev + ':a' + k + (pd.a[k] < 0 ? '-' : '+'));
+        }
+        for (const dev in this.acts) for (const a in this.acts[dev]) if (this.acts[dev][a]) held.add('act:' + a);
+        for (const k in this.keys) if (this.keys[k]) held.add('key:' + k);
+        this.capture = { player, action, slot, until: performance.now() + (secs || 3) * 1000, cb, held, best: null, at: 0, start: performance.now() };
+        this.capTimer = setInterval(() => this.tickCapture(), 30);
     }
+    // a press during listening: the best kind within 80 ms wins (button / key > action)
+    offer(bind, prio, id) {
+        const c = this.capture;
+        if (c.held.has(id) || performance.now() - c.start < 120) return;
+        if (!c.best || prio > c.bestP) { c.best = bind; c.bestP = prio; if (!c.at) c.at = performance.now(); }
+    }
+    tickCapture() {
+        const c = this.capture;
+        if (!c) { clearInterval(this.capTimer); return; }
+        const now = performance.now();
+        if (c.best && now - c.at > 80) { this.finishCapture(c.best); return; }
+        if (!c.best && now > c.until) { this.capture = null; clearInterval(this.capTimer); if (c.cb) c.cb(null); }
+    }
+    cancelCapture() { if (this.capture) { this.capture = null; clearInterval(this.capTimer); } }
     finishCapture(bind) {
-        const c = this.capture; this.capture = null;
+        const c = this.capture; this.capture = null; clearInterval(this.capTimer);
         const list = this.players[c.player].map[c.action];
         // a button keeps one job per player: remove it from other actions
-        const same = (x) => (x.b !== undefined && x.b === bind.b) || (x.a !== undefined && x.a === bind.a && x.s === bind.s) || (x.k && x.k === bind.k);
+        const same = (x) => (x.b !== undefined && x.b === bind.b) || (x.a !== undefined && x.a === bind.a && x.s === bind.s) || (x.k && x.k === bind.k) || (x.c && x.c === bind.c);
         for (const k of ACTIONS) { const l = this.players[c.player].map[k]; for (let j = l.length - 1; j >= 0; j--) if (same(l[j])) l.splice(j, 1); }
         if (c.slot < list.length) list[c.slot] = bind; else list.push(bind);
         if (c.cb) c.cb(bind);
@@ -129,9 +171,11 @@ export class Input {
                 const pd = this.pads[dev];
                 let v = 0;
                 if (b.b !== undefined) v = pd.b[b.b];
-                else { const x = pd.a[b.a] * b.s; v = x > 0.15 ? (x - 0.15) / 0.85 : 0; }
+                else { const x = pd.a[b.a] * b.s, dz = P.dead; v = x > dz ? (x - dz) / (1 - dz) : 0; }
                 if (v > best) best = v;
             }
+        } else if (b.c) {
+            if (this.keys[b.c]) best = 1;
         } else if (b.k) {
             for (const dev in this.acts) {
                 if (P.devs && !P.devs.has(dev)) continue;
@@ -151,13 +195,13 @@ export class Input {
     // called once per tick: fills players[p].ctl and edges
     poll(dt) {
         this.time += dt;
-        if (this.capture && this.time > this.capture.until) { const c = this.capture; this.capture = null; if (c.cb) c.cb(null); }
         for (let p = 0; p < 2; p++) {
             const P = this.players[p], c = P.ctl;
             const l = this.act(p, 'left'), r = this.act(p, 'right');
-            let st = r - l;
+            // + = left: the car's own frame (+X is left), so pressing right turns right
+            let st = l - r;
             // a gentle curve: fine control near the centre of the stick
-            st = Math.sign(st) * Math.pow(Math.abs(st), 1.4);
+            st = Math.sign(st) * Math.pow(Math.abs(st), P.curve);
             c.steer = st;
             c.throttle = this.act(p, 'accel');
             c.brake = this.act(p, 'brake');
@@ -172,5 +216,6 @@ export class Input {
             P.prev.nitro = n;
         }
     }
-    clearHeld() { for (const d in this.acts) this.acts[d] = {}; for (const d in this.pads) { this.pads[d].b.fill(0); this.pads[d].a.fill(0); } }
+    dispose() { window.removeEventListener('keydown', this.onKey); window.removeEventListener('keyup', this.onKey); this.cancelCapture(); }
+    clearHeld() { this.keys = {}; for (const d in this.acts) this.acts[d] = {}; for (const d in this.pads) { this.pads[d].b.fill(0); this.pads[d].a.fill(0); } }
 }

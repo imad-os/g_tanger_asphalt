@@ -2,23 +2,27 @@
 import { SPECS } from './vehicle.js';
 
 export const CARS = [
-    { id: 'hatch', name: 'Medina Hatch', stars: 0, paint: 0xe0402a },
-    { id: 'sport', name: 'Boughaz Coupe', stars: 0, paint: 0x1d63d6 },
-    { id: 'suvlux', name: 'Atlas Cruiser', stars: 10, paint: 0x2b2f36 },
-    { id: 'race', name: 'Spartel R', stars: 22, paint: 0xf2b705 },
-    { id: 'police', name: 'Interceptor', stars: 36, paint: 0xf4f4f4 },
-    { id: 'future', name: 'Chergui EV', stars: 52, paint: 0x18c6b2 },
-    { id: 'gt', name: 'Hercules GT', stars: 70, paint: 0xd81e2c }
+    // everyday cars first; original names (no makers' names or badges). roof: a second colour for the roof (-1 = none)
+    { id: 'city', name: 'Kasbah City', stars: 0, paint: 0xf4f4f4, roof: 0xc8102e, mine: 1 },   // the owner's own car
+    { id: 'hatch', name: 'Medina Hatch', stars: 0, paint: 0xf2b705, roof: 0x0b0b0e },
+    { id: 'volt', name: 'Volta Saloon', stars: 8, paint: 0xf4f4f4, roof: -1 },
+    { id: 'suvlux', name: 'Atlas Cruiser', stars: 18, paint: 0x2b2f36, roof: -1 },
+    { id: 'wedge', name: 'Spartel Wedge', stars: 30, paint: 0xb9bec4, roof: -1 },
+    { id: 'police', name: 'Interceptor', stars: 44, paint: 0xf4f4f4, roof: -1 },
+    { id: 'gt', name: 'Hercules GT', stars: 62, paint: 0xd81e2c, roof: -1 }
 ];
-export const PAINTS = [0xd81e2c, 0xe0402a, 0xf2b705, 0x18c6b2, 0x1d63d6, 0x5b2bd6, 0xf4f4f4, 0x2b2f36, 0x0f7a3c, 0xff5fa2, 0x9aa3ad, 0x0b0b0e];
+export const PAINTS = [0xf4f4f4, 0xc8102e, 0xd81e2c, 0xe0402a, 0xf2b705, 0x18c6b2, 0x1d63d6, 0x1b2a4a, 0x5b2bd6, 0x2b2f36, 0x0f7a3c, 0xb9bec4, 0x9aa3ad, 0x0b0b0e];
 const RIVALS = ['Yassine', 'Salma', 'Karim', 'Nora', 'Omar', 'Imane', 'Hamza', 'Rania', 'Mehdi', 'Aya'];
-const RIVAL_PAINTS = [0x2aa1e0, 0xf27b05, 0x7bc043, 0xcf3c8f, 0xe8e8e8, 0x3a3a46, 0xe6c229, 0x8e44ad, 0x16a085, 0xc0392b];
+const RIVAL_PAINTS = [0xe8e8e8, 0x2aa1e0, 0x3a3a46, 0xc0392b, 0x9aa3ad, 0xf27b05, 0x1b2a4a, 0x7bc043, 0xe6c229, 0x16a085];
+const RIVAL_ROOFS = [0x0b0b0e, -1, 0xf4f4f4, -1, 0xc8102e, -1];
 export const MAXUP = 5;
 
 export function stats(carId, up) {
     const s = SPECS[carId]; up = up || { engine: 0, nitro: 0, grip: 0 };
     const p = s.power * (1 + 0.06 * up.engine);
-    const top = Math.round(Math.cbrt(p * 1000 / (0.5 * 1.225 * s.cda)) * 3.6 * 0.97);   // where drag eats all the power
+    // where drag eats all the power, or where the engine (motor) runs out of revs in top gear
+    const rev = s.rpm * Math.PI / 30 / (s.gears[s.gears.length - 1] * s.final) * 0.34 * 3.6;
+    const top = Math.round(Math.min(rev, Math.cbrt(p * 1000 / (0.5 * 1.225 * s.cda)) * 3.6 * 0.9));
     const acc = Math.min(100, Math.round(p / s.mass * 1000 / 5.2));
     const hand = Math.min(100, Math.round((s.mu * (1 + 0.025 * up.grip) - 0.9) * 180 + s.cl * 25));
     const nit = Math.min(100, Math.round(s.nitro * (1 + 0.08 * up.nitro) / s.mass * 1000 * 8));
@@ -29,9 +33,10 @@ export class Career {
     constructor(saved, routes) {
         this.routes = routes.routes;
         const d = saved || {};
+        const ids = CARS.map(c => c.id), known = id => ids.includes(id);   // saves from before the car list changed
         this.d = {
-            stars: d.stars || {}, credits: d.credits || 3000, owned: d.owned || ['hatch', 'sport'], up: d.up || {}, paint: d.paint || {},
-            car: d.car || 'sport', best: d.best || {}, settings: Object.assign({ quality: 'auto', fps: 0, units: 'kmh', easy: [0, 0], esc: [1, 1], cam: 0 }, d.settings || {})
+            stars: d.stars || {}, credits: d.credits || 3000, owned: ['city', 'hatch'].concat((d.owned || []).filter(id => known(id) && id !== 'city' && id !== 'hatch')), up: d.up || {}, paint: d.paint || {}, roof: d.roof || {},
+            car: known(d.car) ? d.car : 'city', best: d.best || {}, settings: Object.assign({ quality: 'auto', fps: 0, units: 'kmh', easy: [0, 0], esc: [1, 1], cam: 0 }, d.settings || {})
         };
         this.events = [];
         const modes = ['race', 'takedown', 'time'];
@@ -47,6 +52,7 @@ export class Career {
     totalStars() { let n = 0; for (const k in this.d.stars) n += this.d.stars[k]; return n; }
     up(car) { return this.d.up[car] || (this.d.up[car] = { engine: 0, nitro: 0, grip: 0 }); }
     paintOf(car) { return this.d.paint[car] !== undefined ? this.d.paint[car] : CARS.find(c => c.id === car).paint; }
+    roofOf(car) { return this.d.roof[car] !== undefined ? this.d.roof[car] : CARS.find(c => c.id === car).roof; }
     upCost(car, kind) { const lv = this.up(car)[kind]; const cls = { D: 1, C: 1.4, B: 1.9, A: 2.6, S: 3.4 }[SPECS[car].cls] || 1; return Math.round((lv + 1) * 900 * cls / 100) * 100; }
     buyUp(car, kind) {
         const u = this.up(car); if (u[kind] >= MAXUP) return false;
@@ -63,18 +69,20 @@ export class Career {
         const pcls = SPECS[cfg.players[0].car].cls;
         const order = ['D', 'C', 'B', 'A', 'S'];
         const ci = order.indexOf(pcls);
-        const pool = Object.keys(SPECS).filter(k => SPECS[k].cls !== 'T' && Math.abs(order.indexOf(SPECS[k].cls) - ci) <= 1);
+        // rivals drive cars of the same class (everyday cars race everyday cars); the next class too when it is small
+        let pool = Object.keys(SPECS).filter(k => SPECS[k].cls === pcls);
+        if (pool.length < 2) pool = Object.keys(SPECS).filter(k => SPECS[k].cls !== 'T' && Math.abs(order.indexOf(SPECS[k].cls) - ci) <= 1);
         const nR = cfg.rivals !== undefined ? cfg.rivals : 5;
         const chapter = cfg.event ? cfg.event.chapter : 3;
         for (let k = 0; k < nR; k++) {
             const car = pool[(k * 3 + chapter) % pool.length];
-            g.push({ spec: car, paint: RIVAL_PAINTS[k % RIVAL_PAINTS.length], player: -1, name: RIVALS[(k + chapter) % RIVALS.length],
+            g.push({ spec: car, paint: RIVAL_PAINTS[(k + chapter) % RIVAL_PAINTS.length], roof: RIVAL_ROOFS[(k + chapter) % RIVAL_ROOFS.length], player: -1, name: RIVALS[(k + chapter) % RIVALS.length],
                 skill: Math.min(1, 0.8 + chapter * 0.018 + (k % 3) * 0.03), upgrades: { engine: Math.min(5, chapter >> 1), nitro: 1, grip: Math.min(5, chapter >> 1) } });
         }
         // players start at the back of the grid, like the real thing
         for (let p = 0; p < nP; p++) {
             const pl = cfg.players[p];
-            g.push({ spec: pl.car, paint: pl.paint !== undefined ? pl.paint : this.paintOf(pl.car), player: p, name: pl.name || ('P' + (p + 1)),
+            g.push({ spec: pl.car, paint: pl.paint !== undefined ? pl.paint : this.paintOf(pl.car), roof: pl.roof !== undefined ? pl.roof : this.roofOf(pl.car), player: p, name: pl.name || ('P' + (p + 1)),
                 upgrades: this.up(pl.car), assist: { easy: this.d.settings.easy[p] || pl.bot ? 1 : 0, bot: !!pl.bot, auto: 1, esc: this.d.settings.esc[p] } });
         }
         return g;

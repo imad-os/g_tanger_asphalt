@@ -4,6 +4,7 @@
 import { I18n } from './i18n.js';
 import { CARS, PAINTS, stats, MAXUP } from './career.js';
 import { SPECS } from './vehicle.js';
+import { modelInfo } from './assets.js';
 import { ACTIONS, bindLabel, defaultMap } from './input.js';
 
 const t = (k) => I18n.t(k);
@@ -118,7 +119,7 @@ export class UI {
             this.btn(t('press'), () => this.home(), 'press', { 'data-first': '1' }),
             h('div', { class: 'foot' }, t('creditsText'))
         ));
-        this.app.showroom.show(this.app.career.d.car, this.app.career.paintOf(this.app.career.d.car));
+        this.app.showroom.show(this.app.career.d.car, this.app.career.paintOf(this.app.career.d.car), this.app.career.roofOf(this.app.career.d.car));
     }
     topbar() {
         const c = this.app.career;
@@ -127,7 +128,7 @@ export class UI {
     }
     home() {
         const c = this.app.career;
-        this.app.showroom.show(c.d.car, c.paintOf(c.d.car));
+        this.app.showroom.show(c.d.car, c.paintOf(c.d.car), c.roofOf(c.d.car));
         this.render('home', () => h('div', { class: 'wrap' }, this.topbar(),
             h('div', { class: 'tiles' },
                 this.tile('career', t('career'), c.totalStars() + ' / ' + c.events.length * 3 + ' ★', () => this.career(), true),
@@ -211,9 +212,9 @@ export class UI {
             const car = CARS.find(x => x.id === id), st = stats(id, c.up(id));
             info.innerHTML = '';
             info.appendChild(h('div', { class: 'cn' }, car.name));
-            info.appendChild(h('div', { class: 'cc' }, 'Class ' + SPECS[id].cls + (two ? ' · ' + t(p ? 'p2' : 'p1') : '')));
+            info.appendChild(h('div', { class: 'cc' }, this.carTag(id) + (two ? ' · ' + t(p ? 'p2' : 'p1') : '')));
             info.appendChild(this.bars(st));
-            this.app.showroom.show(id, c.paintOf(id));
+            this.app.showroom.show(id, c.paintOf(id), c.roofOf(id));
         };
         const list = h('div', { class: 'carlist' }, CARS.map(car => {
             const ok = c.unlocked(car.id);
@@ -227,6 +228,11 @@ export class UI {
             { back: () => (two && p === 1 ? this.pickCar(cfg, 0, chosen) : cfg.event ? this.career() : two ? this.twoPlayers() : this.quick()) });
         showInfo(cur);
     }
+    // 'Class D · Your car · Electric'
+    carTag(id) {
+        const car = CARS.find(x => x.id === id), sp = SPECS[id];
+        return 'Class ' + sp.cls + (car.mine ? ' · ' + t('yourCar') : '') + (sp.ev ? ' · ' + t('electric') : '');
+    }
     bars(st) {
         const row = (k, v, max) => h('div', { class: 'bar' }, h('span', null, t(k)), h('i', null, h('b', { style: 'transform:scaleX(' + Math.min(1, v / max).toFixed(3) + ')' })), h('em', null, k === 'speed' ? v + ' km/h' : String(v)));
         return h('div', { class: 'bars' }, row('speed', st.top, 420), row('accel', st.acc, 100), row('handling', st.hand, 100), row('nitroS', st.nit, 100));
@@ -234,7 +240,7 @@ export class UI {
     go(cfg, chosen) {
         const c = this.app.career;
         if (!cfg.twoP) { c.d.car = chosen[0].car; c.save(); }
-        cfg.players = chosen.map((x, k) => ({ car: x.car, paint: k === 1 && chosen[0].car === x.car ? PAINTS[(PAINTS.indexOf(c.paintOf(x.car)) + 4) % PAINTS.length] : c.paintOf(x.car) }));
+        cfg.players = chosen.map((x, k) => ({ car: x.car, roof: c.roofOf(x.car), paint: k === 1 && chosen[0].car === x.car ? PAINTS[(PAINTS.indexOf(c.paintOf(x.car)) + 4) % PAINTS.length] : c.paintOf(x.car) }));
         this.app.input.players[1].devs = cfg.twoP ? this.app.input.players[1].devs : null;
         if (!cfg.twoP) this.app.input.players[0].devs = null;
         this.app.startRace(cfg);
@@ -282,11 +288,11 @@ export class UI {
         sel = sel || c.d.car;
         const car = CARS.find(x => x.id === sel);
         const ok = c.unlocked(sel);
-        this.app.showroom.show(sel, c.paintOf(sel));
+        this.app.showroom.show(sel, c.paintOf(sel), c.roofOf(sel));
         const list = h('div', { class: 'carlist' }, CARS.map(x => {
             const el = h('div', { class: 'ccard' + (c.unlocked(x.id) ? '' : ' locked') + (x.id === sel ? ' sel' : ''), 'data-f': '1', 'data-say': x.name, 'data-first': x.id === sel ? '1' : undefined, on: () => this.garage(x.id) },
                 h('div', { class: 'ccl' }, SPECS[x.id].cls), h('div', { class: 'ccn' }, x.name), c.unlocked(x.id) ? null : h('div', { class: 'ccs' }, '🔒 ' + x.stars + ' ★'));
-            el._onFocus = () => this.app.showroom.show(x.id, c.paintOf(x.id));
+            el._onFocus = () => this.app.showroom.show(x.id, c.paintOf(x.id), c.roofOf(x.id));
             return el;
         }));
         const u = c.up(sel);
@@ -297,17 +303,27 @@ export class UI {
                 h('span', { class: 'uc' }, full ? 'MAX' : '◆ ' + c.upCost(sel, k)));
         };
         const sw = h('div', { class: 'swatches' }, PAINTS.map((p, k) => {
-            const e = h('div', { class: 'sw' + (c.paintOf(sel) === p ? ' sel' : ''), 'data-f': '1', style: 'background:#' + p.toString(16).padStart(6, '0'), on: () => { c.d.paint[sel] = p; c.save(); this.app.showroom.show(sel, p); this.garage(sel); this.focusSel('.sw', k); } });
-            e._onFocus = () => this.app.showroom.show(sel, p);
+            const e = h('div', { class: 'sw' + (c.paintOf(sel) === p ? ' sel' : ''), 'data-f': '1', style: 'background:#' + p.toString(16).padStart(6, '0'), on: () => { c.d.paint[sel] = p; c.save(); this.app.showroom.show(sel, p, c.roofOf(sel)); this.garage(sel); this.focusSel('.sw', k); } });
+            e._onFocus = () => this.app.showroom.show(sel, p, c.roofOf(sel));
             return e;
         }));
+        // roof colour (two-tone): the first swatch = same as the body
+        const hasRoof = modelInfo(SPECS[sel].model).roofY < 50;
+        const roofs = [-1].concat(PAINTS);
+        const rw = hasRoof ? h('div', { class: 'swatches' }, roofs.map((p, k) => {
+            const bg = p < 0 ? 'background:linear-gradient(135deg,#' + c.paintOf(sel).toString(16).padStart(6, '0') + ' 50%,#555 50%)' : 'background:#' + p.toString(16).padStart(6, '0');
+            const e = h('div', { class: 'sw rf' + (c.roofOf(sel) === p ? ' sel' : ''), 'data-f': '1', 'data-say': p < 0 ? t('sameRoof') : t('roof'), style: bg,
+                on: () => { c.d.roof[sel] = p; c.save(); this.app.showroom.show(sel, c.paintOf(sel), p); this.garage(sel); this.focusSel('.sw.rf', k); } });
+            e._onFocus = () => this.app.showroom.show(sel, c.paintOf(sel), p);
+            return e;
+        })) : null;
         this.render('garage', () => h('div', { class: 'wrap' }, this.topbar(), h('h1', null, t('garage')),
             h('div', { class: 'pick' }, list, h('div', { class: 'carinfo' },
-                h('div', { class: 'cn' }, car.name), h('div', { class: 'cc' }, 'Class ' + SPECS[sel].cls),
+                h('div', { class: 'cn' }, car.name), h('div', { class: 'cc' }, this.carTag(sel)),
                 this.bars(stats(sel, u)),
                 ok ? this.btn(c.d.car === sel ? t('selected') : t('select'), () => { c.d.car = sel; c.save(); this.garage(sel); }, 'go') : h('div', { class: 'need' }, '🔒 ' + t('need') + ' ' + car.stars + ' ★'),
                 h('h3', null, t('upgrade')), upRow('engine'), upRow('nitro'), upRow('grip'),
-                h('h3', null, t('paint')), sw))
+                h('h3', null, t('paint')), sw, hasRoof ? h('h3', null, t('roof')) : null, rw))
         ), { back: () => this.home() });
     }
     focusSel(sel, k) { const l = this.root.querySelectorAll(sel); if (l[k]) this.setFocus(l[k]); }
@@ -324,25 +340,40 @@ export class UI {
                 h('div', { class: 'credits' }, h('b', null, t('credits_title')), ' ', t('creditsText'))
             )), { back: () => this.home() });
     }
-    controls(p) {
+    controls(p, focusId) {
         const inp = this.app.input, P = inp.players[p], c = this.app.career, s = c.d.settings;
         const persist = () => { window.MyPC.save('controls', inp.save()); c.save(); };
+        // one row per action: up to 4 button boxes (OK = listen 3 s for ANY button, it replaces that box), + to add, ✕ to clear
+        const again = (id) => { this.controls(p, id); };
         const rows = ACTIONS.map(a => {
-            const chips = h('span', { class: 'chips' }, P.map[a].map(b => h('i', null, bindLabel(b))));
-            const row = h('div', { class: 'crow', 'data-f': '1', 'data-say': t('a_' + a), on: () => {
-                chips.innerHTML = ''; chips.appendChild(h('i', { class: 'wait' }, t('pressBtn')));
-                inp.startCapture(p, a, 0, () => { persist(); this.controls(p); this.focusSel('.crow', ACTIONS.indexOf(a)); });
-            } }, h('span', { class: 'ca' }, t('a_' + a)), chips);
-            return row;
+            const list = P.map[a];
+            const slot = (k) => {
+                const b = list[k], id = a + ':' + k;
+                const el = h('i', { class: 'cslot' + (b ? '' : ' add'), 'data-f': '1', 'data-id': id, 'data-say': t('a_' + a) + ' ' + (b ? bindLabel(b) : t('addB')), on: () => {
+                    let left = 3;
+                    el.className = 'cslot wait'; el.textContent = t('pressBtn') + ' 3';
+                    const tick = setInterval(() => { left--; if (left > 0 && el.isConnected) el.textContent = t('pressBtn') + ' ' + left; }, 1000);
+                    inp.startCapture(p, a, k, (got) => { clearInterval(tick); if (got) { persist(); this.app.sound && this.app.sound.ui('ok'); } again(id); }, 3);
+                } }, b ? bindLabel(b) : '＋');
+                return el;
+            };
+            const slots = [];
+            for (let k = 0; k < Math.min(4, list.length + 1); k++) slots.push(slot(k));
+            const clr = h('i', { class: 'cslot clr', 'data-f': '1', 'data-id': a + ':x', 'data-say': t('clearB') + ' ' + t('a_' + a), on: () => { P.map[a] = []; persist(); again(a + ':0'); } }, '✕');
+            return h('div', { class: 'crow' }, h('span', { class: 'ca' }, t('a_' + a)), h('span', { class: 'chips' }, slots, clr));
         });
         this.render('controls', () => h('div', { class: 'wrap' }, this.topbar(), h('h1', null, t('controls') + ' — ' + t(p ? 'p2' : 'p1')),
+            h('div', { class: 'maphelp' }, t('mapHelp')),
             h('div', { class: 'form wide' },
                 rows,
                 this.opt(t('autoAcc'), [{ v: true, l: t('on') }, { v: false, l: t('off') }], () => P.auto, v => { P.auto = v; persist(); }),
                 this.opt(t('easy'), [{ v: 0, l: t('off') }, { v: 1, l: t('on') }], () => s.easy[p], v => { s.easy[p] = v; persist(); }),
                 this.opt(t('esc'), [{ v: 1, l: t('on') }, { v: 0, l: t('off') }], () => s.esc[p], v => { s.esc[p] = v; persist(); }),
+                this.opt(t('steerFeel'), [{ v: 2, l: t('gentle') }, { v: 1.4, l: t('normal') }, { v: 1, l: t('direct') }], () => P.curve, v => { P.curve = v; persist(); }),
+                this.opt(t('deadZone'), [0.05, 0.1, 0.15, 0.25].map(v => ({ v, l: Math.round(v * 100) + ' %' })), () => P.dead, v => { P.dead = v; persist(); }),
                 this.btn(t('reset'), () => { P.map = defaultMap(); persist(); this.controls(p); })
-            ), h('div', { class: 'hint' }, t('controlsHelpRemote'))), { back: () => this.settings() });
+            )), { back: () => { inp.cancelCapture(); this.settings(); } });
+        if (focusId) { const el = this.root.querySelector('[data-id="' + focusId + '"]') || this.root.querySelector('[data-id="' + focusId.split(':')[0] + ':0"]'); if (el) this.setFocus(el); }
     }
 
     results(res) {

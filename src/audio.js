@@ -1,5 +1,6 @@
-// Sound: one AudioContext (made in onStart, closed in onDestroy). Engines are synthesized (two oscillators and
-// noise through a filter that follows rpm and throttle), tyre squeal and wind are filtered noise, impacts and UI
+// Sound: one AudioContext (made in onStart, closed in onDestroy). Engines are synthesized per car in an
+// AudioWorklet (assets/engine-worklet.js: firing pulses per cylinder through an exhaust model, turbo, electric
+// whine; old oscillators only where AudioWorklet is missing), tyre squeal and wind are filtered noise, impacts and UI
 // clicks are short Kenney CC0 samples, music is a looping <audio> element (no big decode on the TV).
 import { VERSION } from './version.js';
 
@@ -18,6 +19,8 @@ export class Sound {
         const nb = c.createBuffer(1, c.sampleRate, c.sampleRate), d = nb.getChannelData(0);
         for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
         this.noise = nb;
+        this.worklet = null;
+        if (c.audioWorklet) this.worklet = c.audioWorklet.addModule('assets/engine-worklet.js?v=' + VERSION).then(() => true).catch(() => false);
         for (const n of SFX) fetch('assets/sfx/' + n + '.ogg?v=' + VERSION).then(r => r.arrayBuffer()).then(b => c.decodeAudioData(b)).then(b => { this.buf[n] = b; }).catch(() => {});
         this.playMusic('alpha-dance');
     }
@@ -43,8 +46,20 @@ export class Sound {
     }
     ui(kind) { this.play(kind === 'ok' ? 'confirmation_001' : kind === 'back' ? 'back_001' : kind === 'switch' ? 'switch_001' : 'select_001', 0.5); }
 
-    engineVoice() {
+    // the engine's own sound: an AudioWorklet node for this car (cylinders, turbo, electric), else oscillators
+    engineNode(spec, seed) {
         const c = this.ctx;
+        if (this.workletOk) {
+            const node = new AudioWorkletNode(c, 'engine', { numberOfInputs: 0, outputChannelCount: [1],
+                processorOptions: { cyl: spec.cyl || 4, turbo: !!spec.turbo, ev: !!spec.ev, diesel: !!spec.diesel, rpmMax: spec.rpm, seed } });
+            const P = node.parameters;
+            return { node, rpm: P.get('rpm'), load: P.get('load'), speed: P.get('speed'), gain: P.get('gain'), nodes: [] };
+        }
+        return null;
+    }
+    engineVoice(spec, seed) {
+        const c = this.ctx;
+        const wk = spec ? this.engineNode(spec, seed || 1) : null;
         const o1 = c.createOscillator(); o1.type = 'sawtooth';
         const o2 = c.createOscillator(); o2.type = 'square';
         const n = this.noiseSrc();
@@ -62,16 +77,21 @@ export class Sound {
         const ngn = c.createGain(); ngn.gain.value = 0; nit.connect(nf); nf.connect(ngn);
         const pan = c.createStereoPanner ? c.createStereoPanner() : null;
         const out = pan || c.createGain();
-        g.connect(out); tg.connect(out); wg.connect(out); ngn.connect(out); out.connect(this.master);
-        o1.start(); o2.start(); n.start(); t.start(); w.start(); nit.start();
-        return { o1, o2, f, g, tg, wg, ngn, nf, pan, nodes: [o1, o2, n, t, w, nit], out };
+        if (wk) wk.node.connect(out); else g.connect(out);
+        tg.connect(out); wg.connect(out); ngn.connect(out); out.connect(this.master);
+        if (!wk) { o1.start(); o2.start(); n.start(); }
+        t.start(); w.start(); nit.start();
+        return { wk, spec, o1, o2, f, g, tg, wg, ngn, nf, pan, nodes: wk ? [t, w, nit] : [o1, o2, n, t, w, nit], out };
     }
-    begin(session) {
+    async begin(session) {
         if (!this.ctx) return;
         this.end();
+        this.cur = session;
+        if (this.worklet) this.workletOk = await this.worklet;
+        if (this.cur !== session || this.engines.length) return;   // the race ended while the worklet loaded
         const n = session.race.players.length;
-        for (let p = 0; p < n; p++) { const v = this.engineVoice(); if (v.pan) v.pan.pan.value = n > 1 ? (p ? 0.5 : -0.5) : 0; this.engines.push(v); }
-        this.rival = this.engineVoice();
+        for (let p = 0; p < n; p++) { const v = this.engineVoice(session.race.players[p].spec, p + 1); if (v.pan) v.pan.pan.value = n > 1 ? (p ? 0.5 : -0.5) : 0; this.engines.push(v); }
+        this.rival = null;
         this.playMusic('time-driving');
     }
     update(session, dt) {
@@ -86,15 +106,24 @@ export class Sound {
         // the nearest rival's engine
         let best = null, bd = 1e9; const me = race.players[0].veh;
         for (const o of race.racers) { if (o.player >= 0) continue; const d = Math.hypot(o.veh.px - me.px, o.veh.pz - me.pz); if (d < bd) { bd = d; best = o; } }
+        if (best && (!this.rival || this.rival.spec !== best.spec)) { if (this.rival) this.drop(this.rival); this.rival = this.engineVoice(best.spec, 7); }
         if (best) this.voice(this.rival, best.veh, best, t, k * Math.max(0, 1 - bd / 60) * 0.6, 0);
     }
     voice(e, v, r, t, k, me) {
         const rpm = v.rpm, thr = Math.max(v.input.throttle, v.nitroOn ? 1 : 0);
+        const wrecked = r.wreck > 0;
+        if (e.wk) {
+            // load: the throttle, cut while the gearbox changes gear (the revs drop and the note dips, like a real shift)
+            const load = wrecked ? 0 : v.shiftT > 0 ? 0.04 : thr;
+            e.wk.rpm.setValueAtTime(wrecked ? 800 : rpm, t);
+            e.wk.load.setValueAtTime(load, t);
+            e.wk.speed.setValueAtTime(me ? v.speed : 0, t);
+            e.wk.gain.setTargetAtTime(wrecked ? 0.15 * k : (v.spec.ev ? 0.9 : 0.55 + 0.25 * load) * k, t, 0.05);
+        }
         const f0 = 28 + rpm / 60 * 1.6;
         e.o1.frequency.setTargetAtTime(f0, t, 0.03);
         e.o2.frequency.setTargetAtTime(f0 * 0.5, t, 0.03);
         e.f.frequency.setTargetAtTime(300 + rpm * 0.32 * (0.5 + thr * 0.5), t, 0.05);
-        const wrecked = r.wreck > 0;
         e.g.gain.setTargetAtTime(wrecked ? 0.02 : (0.1 + thr * 0.14) * k, t, 0.05);
         let slide = 0; for (let i = 0; i < 4; i++) { const w = v.wheels[i]; if (w.contact) slide = Math.max(slide, w.slipLat, w.slipLong); }
         e.tg.gain.setTargetAtTime(slide > 0.3 && v.speed > 5 ? Math.min(0.22, (slide - 0.3) * 0.4) * k : 0, t, 0.04);
@@ -118,9 +147,10 @@ export class Sound {
             this.play('explosionCrunch_000', 0.9, 0.8); this.play('impactGlass_heavy_000', 0.7); this.play('impactPlate_heavy_000', 0.8, 0.85);
         }
     }
+    drop(e) { for (const n of e.nodes) { try { n.stop(); } catch (_) { /* stopped */ } } if (e.wk) e.wk.node.disconnect(); e.out.disconnect(); }
     end() {
-        for (const e of this.engines.concat(this.rival ? [this.rival] : [])) { for (const n of e.nodes) { try { n.stop(); } catch (_) { /* stopped */ } } e.out.disconnect(); }
-        this.engines = []; this.rival = null;
+        for (const e of this.engines.concat(this.rival ? [this.rival] : [])) this.drop(e);
+        this.engines = []; this.rival = null; this.cur = null;
         if (this.ctx) this.playMusic('alpha-dance');
     }
     pause() { if (this.ctx) this.ctx.suspend(); if (this.music) this.music.pause(); }

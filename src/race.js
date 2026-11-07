@@ -15,7 +15,7 @@ export class Racer {
         this.spec = spec;
         const dims = carDims(spec.model);
         this.veh = new Vehicle(spec, dims, opts.upgrades);
-        this.view = new CarView(race.scene, spec.model, paint);
+        this.view = new CarView(race.scene, spec.model, paint, opts.roof);
         this.player = opts.player;          // 0 / 1 for humans, -1 for AI
         this.name = opts.name || '';
         this.skill = opts.skill || 0.9;
@@ -52,7 +52,7 @@ export class Race {
         const startS = 30;
         for (let k = 0; k < grid.length; k++) {
             const g = grid[k];
-            const r = new Racer(this, SPECS[g.spec], g.paint, { player: g.player, name: g.name, skill: g.skill, upgrades: g.upgrades, events: this.events });
+            const r = new Racer(this, SPECS[g.spec], g.paint, { roof: g.roof, player: g.player, name: g.name, skill: g.skill, upgrades: g.upgrades, events: this.events });
             r.assist = g.assist || { easy: 0, auto: 1 };
             r.bot = !!(g.assist && g.assist.bot);
             if (r.player >= 0 && g.assist) r.veh.assist.esc = g.assist.esc === 0 ? 0 : 1;

@@ -44,12 +44,12 @@ function getShadow() {
 let shadowMat = null, flameMat = null;
 
 export class CarView {
-    constructor(scene, model, paint) {
+    constructor(scene, model, paint, roof) {
         this.scene = scene;
         this.root = new THREE.Group();
         this.root.matrixAutoUpdate = false;
-        this.mat = carMaterial(paint);
         const info = modelInfo(model);
+        this.mat = carMaterial(paint, roof, info.roofY);
         this.body = new THREE.Mesh(partGeometry(model, 'body'), this.mat);
         this.body.matrixAutoUpdate = false;
         this.root.add(this.body);
@@ -84,7 +84,8 @@ export class CarView {
         scene.add(this.root);
         this.lod = 0;
     }
-    setPaint(hex) { this.mat.uniforms.uPaint.value.setHex(hex); }
+    // roof: a second colour for the roof panel (-1 / undefined = the body colour)
+    setPaint(hex, roof) { this.mat.uniforms.uPaint.value.setHex(hex); this.mat.uniforms.uRoof.value.setHex(roof >= 0 ? roof : hex); }
 
     // v: Vehicle; a: interpolation (the state is already the latest); camDist decides the LOD
     sync(v, camDist, nitro, braking) {

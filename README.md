@@ -30,20 +30,33 @@ Rigid body car with four ray-cast wheels, springs and dampers (stiffer rebound),
 with a friction circle and load sensitivity, weight transfer, torque curve + power limit, automatic
 gearbox, aerodynamic drag and downforce, rolling resistance, ballistic jumps, impulse crashes.
 
-| Car | 0-100 km/h | Top speed | 100-0 braking | Skid pad |
-| --- | --- | --- | --- | --- |
-| Medina Hatch (190 kW, FWD) | 5.7 s | 257 km/h | 38.8 m | 0.89 g |
-| Boughaz Coupe (240 kW, RWD) | 4.4 s | 281 km/h | 37.6 m | 0.89 g |
-| Atlas Cruiser (330 kW, AWD) | 4.0 s | 277 km/h | 38.3 m | 0.80 g |
-| Spartel R (380 kW, RWD) | 4.2 s | 326 km/h | 35.3 m | 0.89 g |
-| Interceptor (400 kW, AWD) | 3.5 s | 321 km/h | 36.2 m | 0.89 g |
-| Chergui EV (520 kW, AWD) | 2.8 s | 376 km/h | 35.2 m | 0.98 g |
-| Hercules GT (620 kW, RWD) | 3.4 s | 387 km/h | 33.8 m | 0.98 g |
+Mostly everyday cars (original names, no makers' badges): the player's own white compact with a red roof,
+a 3-cylinder hatch, an electric saloon, an electric wedge pickup, a big SUV, a police car and one supercar.
+
+| Car | Like | 0-100 km/h | Top speed | 100-0 braking | Skid pad |
+| --- | --- | --- | --- | --- | --- |
+| Kasbah City (81 kW, 3-cyl turbo, FWD) | 2019 small hatch, two-tone roof | 9.3 s | 185 km/h | 40.6 m | 0.89 g |
+| Medina Hatch (96 kW, 3-cyl turbo, FWD) | city hatch | 8.6 s | 202 km/h | 40.0 m | 0.89 g |
+| Volta Saloon (366 kW, electric, AWD) | electric saloon | 4.6 s | 235 km/h | 39.0 m | 0.80 g |
+| Atlas Cruiser (300 kW, V8 turbo, AWD) | big SUV | 4.6 s | 256 km/h | 39.5 m | 0.80 g |
+| Spartel Wedge (447 kW, electric, AWD, 3.1 t) | angular steel pickup | 4.5 s | 183 km/h | 39.4 m | 0.80 g |
+| Interceptor (330 kW, V6 turbo, AWD) | police car | 4.1 s | 297 km/h | 36.9 m | 0.89 g |
+| Hercules GT (620 kW, V10, RWD) | supercar | 3.4 s | 387 km/h | 33.7 m | 0.98 g |
+
+Engine sound (`assets/engine-worklet.js`, an AudioWorklet): every cylinder's firing pulse goes through an exhaust
+model, so the note follows the real firing rate (3000 rpm: 75 Hz for a 3-cylinder, 200 Hz for a V8; checked by
+`node tests/engine-sound.mjs <folder>`, which also saves a WAV per car driven by the real physics), with intake roar,
+turbo whistle and blow-off, gear-change dips, overrun pops on big engines, and motor / gear whine for electric cars.
 
 Jumps off a 1.6 m kicker: 30 m at 100 km/h, 61 m at 150, 96 m at 200. Hitting it with one side gives a
 big roll and a landing on the wheels. Nitro adds 6.5 to 11 kN on top of the engine.
 
 ## Controls (defaults, all remappable per player in Settings > Controls)
+
+Settings > Controls: OK on a button box, then press the new button within 3 seconds: any pad button, trigger,
+stick direction, Home, keyboard key or remote key. Up to 4 buttons per action, ✕ clears a row; steering response
+and stick dead zone per player.
+
 
 ZR accelerate (auto accelerate is on by default), ZL brake / reverse, stick or D-pad steer,
 **B** nitro (press twice with a full gauge = Overdrive), **A** drift, **Y** look back, **X** camera,

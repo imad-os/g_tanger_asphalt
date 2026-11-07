@@ -35,7 +35,7 @@ function car(id) {
 function place(v, T, s) { T.at(s, 0, q); v.setPose(q.x, q.y + v.cgY + 0.05, q.z, Math.atan2(q.fx ?? T.tx[0], q.fz ?? T.tz[0])); v.hint = 0; for (const w of v.wheels) w.hint = 0; }
 function settle(v, T) { v.hold = true; for (let i = 0; i < 120; i++) v.step(DT, T, q); v.hold = false; }
 
-const ids = process.argv[2] ? [process.argv[2]] : ['hatch', 'sport', 'suvlux', 'race', 'police', 'future', 'gt'];
+const ids = process.argv[2] ? [process.argv[2]] : ['city', 'hatch', 'volt', 'suvlux', 'wedge', 'police', 'gt'];
 const rows = [];
 for (const id of ids) {
     const r = { car: id };
@@ -77,7 +77,7 @@ console.table(rows);
 // jump: a 1.6 m kicker (11 m long) at 150 km/h; airtime, peak height, distance, landing attitude
 const rampT = makeTrack(1500, s => [0, 0, s], 15, [{ s: 600, d: 0, w: 6, len: 11, h: 1.6 }]);
 const jumps = [];
-for (const [kmh, off, id] of [[100, 0, 'sport'], [150, 0, 'sport'], [200, 0, 'sport'], [180, 0, 'race'], [180, 2.6, 'race'], [180, 3.3, 'race'], [180, 3.3, 'hatch']]) {
+for (const [kmh, off, id] of [[100, 0, 'hatch'], [150, 0, 'hatch'], [200, 0, 'hatch'], [180, 0, 'police'], [180, 2.6, 'police'], [180, 3.3, 'police'], [180, 3.3, 'hatch']]) {
     const v = car(id); place(v, rampT, 400); v.px += off; settle(v, rampT);
     const sp = kmh / 3.6; v.vz = sp;
     let t = 0, air = 0, top = 0, z0 = 0, z1 = 0, minUp = 1, flying = false, land = 0;
@@ -97,7 +97,7 @@ console.table(jumps);
 import { carWall, carCar } from '../src/collide.js';
 const crashes = [];
 for (const ang of [15, 30, 60]) {
-    const v = car('sport'); place(v, straight, 400); settle(v, straight);
+    const v = car('hatch'); place(v, straight, 400); settle(v, straight);
     const a = ang * Math.PI / 180, sp = 120 / 3.6;
     v.setPose(v.px, v.py, v.pz, a); v.vx = Math.sin(a) * sp; v.vz = Math.cos(a) * sp;
     let t = 0, j = 0, after = 0;
@@ -105,7 +105,7 @@ for (const ang of [15, 30, 60]) {
     crashes.push({ test: 'wall ' + ang + '°', before: 120, after: Math.round(v.speed * 3.6), peakG: +(j / v.mass / 9.81 / DT / 6).toFixed(1), upright: v.R[4] > 0.9 });
 }
 {
-    const a = car('sport'), b = car('t_heavy' in SPECS ? 'sport' : 'sport');
+    const a = car('hatch'), b = car('t_heavy' in SPECS ? 'hatch' : 'hatch');
     place(a, straight, 400); settle(a, straight); place(b, straight, 440); settle(b, straight);
     b.setPose(b.px, b.py, b.pz, Math.PI); a.vz = 100 / 3.6; b.vz = -60 / 3.6;
     let t = 0, j = 0; while (t < 2) { a.step(DT, straight, q); b.step(DT, straight, q); const h = carCar(a, b); if (h > j) j = h; t += DT; }

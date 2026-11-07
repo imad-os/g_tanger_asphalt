@@ -162,14 +162,15 @@ void main() {
 }
 
 // Cars: baked colours, livery paint (flag 255), glass (128), lights (64); a fake sky reflection and a sun highlight.
-export function carMaterial(paint) {
+export function carMaterial(paint, roof, roofY) {
     return new THREE.ShaderMaterial({
-        uniforms: Object.assign({ uPaint: { value: new THREE.Color(paint || 0xd02020) }, uBrake: { value: 0 } }, U),
+        uniforms: Object.assign({ uPaint: { value: new THREE.Color(paint || 0xd02020) }, uRoof: { value: new THREE.Color(roof >= 0 ? roof : paint || 0xd02020) }, uRoofY: { value: roofY || 99 }, uBrake: { value: 0 } }, U),
         vertexShader: COMMON + FOG_V + `
 attribute vec4 col;
 uniform vec3 uPaint; uniform float uBrake;
-varying vec3 vCol; varying vec3 vN; varying vec3 vWp; varying float vKind;
+varying vec3 vCol; varying vec3 vN; varying vec3 vWp; varying float vKind; varying float vY; varying float vSh;
 void main() {
+  vY = position.y; vSh = col.r * 1.25;
   vec4 wp = modelMatrix * vec4(position, 1.0);
   vec4 mv = viewMatrix * wp;
   gl_Position = projectionMatrix * mv;
@@ -185,11 +186,13 @@ void main() {
   ` + FOG_VCALC + `
 }`,
         fragmentShader: COMMON + LIGHT + FOG_V + `
-varying vec3 vCol; varying vec3 vN; varying vec3 vWp; varying float vKind;
+uniform vec3 uRoof; uniform float uRoofY;
+varying vec3 vCol; varying vec3 vN; varying vec3 vWp; varying float vKind; varying float vY; varying float vSh;
 void main() {
   vec3 n = normalize(vN);
+  vec3 base = vKind > 2.5 && vY > uRoofY ? uRoof * vSh : vCol;   // two-tone: the roof panel
   vec3 v = normalize(cameraPosition - vWp);
-  vec3 c = vCol * light(n);
+  vec3 c = base * light(n);
   float fres = pow(1.0 - max(dot(n, v), 0.0), 3.0);
   vec3 r = reflect(-v, n);
   vec3 env = mix(uGround * 0.6, uSky * 1.1, smoothstep(-0.15, 0.25, r.y));

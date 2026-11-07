@@ -8,16 +8,18 @@ const G = 9.81, RHO = 1.225, TYRE_R = 0.34;
 
 export const SPECS = {
     // id: model, class, mass kg, power kW, peak torque Nm, rpm max, gears, final drive, CdA m2, Cl (downforce), grip mu, steer max rad, nitro kN
-    hatch:  { model: 'car_hatch',  cls: 'D', mass: 1180, power: 190, torque: 330, rpm: 7200, gears: [3.4, 2.2, 1.6, 1.25, 1.0, 0.82], final: 3.9, cda: 0.68, cl: 0.08, mu: 1.05, steer: 0.62, nitro: 6.5, drive: 'f' },
-    sport:  { model: 'car_sport',  cls: 'D', mass: 1320, power: 240, torque: 420, rpm: 7000, gears: [3.3, 2.1, 1.55, 1.2, 0.98, 0.8], final: 3.7, cda: 0.66, cl: 0.1, mu: 1.08, steer: 0.6, nitro: 7, drive: 'r' },
-    suvlux: { model: 'car_suvlux', cls: 'C', mass: 1850, power: 330, torque: 620, rpm: 6800, gears: [3.5, 2.3, 1.65, 1.25, 1.0, 0.8, 0.66], final: 3.5, cda: 0.95, cl: 0.06, mu: 1.04, steer: 0.58, nitro: 9.5, drive: 'a' },
-    race:   { model: 'car_race',   cls: 'B', mass: 1250, power: 380, torque: 560, rpm: 8200, gears: [3.2, 2.2, 1.65, 1.3, 1.07, 0.9, 0.78], final: 3.4, cda: 0.7, cl: 0.32, mu: 1.18, steer: 0.56, nitro: 8, drive: 'r' },
-    police: { model: 'car_police', cls: 'B', mass: 1600, power: 400, torque: 640, rpm: 7400, gears: [3.3, 2.2, 1.6, 1.25, 1.02, 0.84, 0.7], final: 3.4, cda: 0.74, cl: 0.12, mu: 1.12, steer: 0.56, nitro: 9, drive: 'a' },
-    future: { model: 'car_future', cls: 'A', mass: 1300, power: 520, torque: 720, rpm: 8800, gears: [3.1, 2.15, 1.65, 1.32, 1.1, 0.93, 0.8], final: 3.3, cda: 0.62, cl: 0.45, mu: 1.24, steer: 0.54, nitro: 10, drive: 'a' },
-    gt:     { model: 'car_gt',     cls: 'S', mass: 1150, power: 620, torque: 760, rpm: 9200, gears: [3.0, 2.1, 1.62, 1.31, 1.1, 0.94, 0.82], final: 3.3, cda: 0.7, cl: 0.7, mu: 1.32, steer: 0.52, nitro: 11, drive: 'r' },
+    // everyday cars (real numbers: weight with a driver, power, torque, gears) and a few fast ones. snd: cylinders,
+    // turbo, ev (electric: one gear, flat torque; rpm max is the motor's), shift: seconds per gear change (manual ~0.45)
+    city:   { model: 'car_city',   cls: 'D', mass: 1165, power: 81, torque: 205, rpm: 6000, gears: [3.42, 1.95, 1.36, 1.05, 0.87, 0.73], final: 4.05, cda: 0.71, cl: 0.02, mu: 0.98, steer: 0.62, nitro: 3.2, drive: 'f', turbo: 1, cyl: 3, shift: 0.45 },
+    hatch:  { model: 'car_hatch',  cls: 'D', mass: 1235, power: 96, torque: 230, rpm: 6200, gears: [3.42, 1.95, 1.36, 1.05, 0.87, 0.73], final: 4.05, cda: 0.64, cl: 0.03, mu: 1.0, steer: 0.62, nitro: 3.6, drive: 'f', turbo: 1, cyl: 3, shift: 0.45 },
+    volt:   { model: 'car_volt',   cls: 'C', mass: 1920, power: 366, torque: 510, rpm: 16500, gears: [1], final: 9.0, cda: 0.5, cl: 0.04, mu: 1.04, steer: 0.58, nitro: 7, drive: 'a', ev: 1 },
+    suvlux: { model: 'car_suvlux', cls: 'C', mass: 2250, power: 300, torque: 620, rpm: 6500, gears: [4.7, 3.14, 2.1, 1.67, 1.29, 1.0, 0.84, 0.67], final: 3.3, cda: 1.05, cl: 0.03, mu: 1.0, steer: 0.56, nitro: 8, drive: 'a', turbo: 1, cyl: 8 },
+    wedge:  { model: 'car_wedge',  cls: 'B', mass: 3150, power: 447, torque: 960, rpm: 12800, gears: [1], final: 9.0, cda: 1.0, cl: 0.02, mu: 1.0, steer: 0.52, nitro: 11, drive: 'a', ev: 1 },
+    police: { model: 'car_police', cls: 'A', mass: 1900, power: 330, torque: 570, rpm: 6600, gears: [4.7, 3.14, 2.1, 1.67, 1.29, 1.0, 0.84, 0.67], final: 3.2, cda: 0.74, cl: 0.06, mu: 1.08, steer: 0.56, nitro: 8.5, drive: 'a', turbo: 1, cyl: 6 },
+    gt:     { model: 'car_gt',     cls: 'S', mass: 1150, power: 620, torque: 760, rpm: 9200, gears: [3.0, 2.1, 1.62, 1.31, 1.1, 0.94, 0.82], final: 3.3, cda: 0.7, cl: 0.7, mu: 1.32, steer: 0.52, nitro: 11, drive: 'r', cyl: 10 },
     // traffic
-    t_small:  { model: 'tr_sedan', cls: 'T', mass: 1250, power: 85, torque: 170, rpm: 6000, gears: [3.5, 2.0, 1.3, 1.0, 0.8], final: 4.0, cda: 0.7, cl: 0, mu: 0.95, steer: 0.6, nitro: 0, drive: 'f' },
-    t_heavy:  { model: 'tr_truck', cls: 'T', mass: 3500, power: 120, torque: 450, rpm: 4000, gears: [5.0, 3.0, 1.9, 1.3, 1.0, 0.8], final: 4.1, cda: 1.6, cl: 0, mu: 0.9, steer: 0.55, nitro: 0, drive: 'r' }
+    t_small:  { model: 'tr_sedan', cls: 'T', mass: 1250, power: 85, torque: 170, rpm: 6000, gears: [3.5, 2.0, 1.3, 1.0, 0.8], final: 4.0, cda: 0.7, cl: 0, mu: 0.95, steer: 0.6, nitro: 0, drive: 'f', cyl: 4 },
+    t_heavy:  { model: 'tr_truck', cls: 'T', mass: 3500, power: 120, torque: 450, rpm: 4000, gears: [5.0, 3.0, 1.9, 1.3, 1.0, 0.8], final: 4.1, cda: 1.6, cl: 0, mu: 0.9, steer: 0.55, nitro: 0, drive: 'r', cyl: 6, diesel: 1 }
 };
 
 function curve(a) { // tyre force shape vs slip (rad for lateral, ratio for longitudinal): peak ~0.14
@@ -66,7 +68,7 @@ export class Vehicle {
         this.c = 2 * 0.32 * Math.sqrt(this.k * spec.mass / 4);
         this.input = { throttle: 0, brake: 0, steer: 0, handbrake: 0, nitro: 0 };
         this.steerNow = 0;
-        this.gear = 1; this.rpm = 900; this.shiftT = 0;
+        this.gear = 1; this.rpm = spec.ev ? 0 : 900; this.shiftT = 0;
         this.nitroOn = 0;
         this.grounded = 0; this.airTime = 0;
         this.speed = 0; this.fwdSpeed = 0; this.latSpeed = 0;
@@ -122,8 +124,10 @@ export class Vehicle {
 
     engineTorque(rpm) {
         const r = rpm / this.spec.rpm;
-        // rises to the peak at ~55 %, holds, falls after 90 %
-        let k = r < 0.55 ? 0.55 + 0.45 * (r / 0.55) : r < 0.9 ? 1 : 1 - (r - 0.9) * 2.5;
+        // petrol: rises to the peak at ~55 %, holds, falls after 90 %; turbo: full torque from ~33 % (2000 rpm, small turbos lag below that);
+        // electric: full torque from standstill, then the power limit takes over
+        const sp = this.spec, lo = sp.ev ? 0 : sp.turbo ? 0.33 : 0.55;
+        let k = r < lo ? 0.55 + 0.45 * (r / lo) : r < 0.9 ? 1 : 1 - (r - 0.9) * (sp.ev ? 1.5 : 2.5);
         if (k < 0) k = 0;
         let tq = this.torqueMax * k;
         const pw = this.power * 1000 / Math.max(100, rpm * Math.PI / 30); // power-limited torque
@@ -156,12 +160,12 @@ export class Vehicle {
         const gr = sp.gears[this.gear - 1] * sp.final;
         // engine speed follows the driven wheels (wheelspin revs it up); the gearbox shifts on road speed
         const roadW = Math.abs(fwd) / TYRE_R;
-        const rpmT = Math.max(900, Math.min(sp.rpm * 1.02, Math.max(roadW, wheelW) * gr * 30 / Math.PI));
+        const rpmT = Math.max(sp.ev ? 0 : 900, Math.min(sp.rpm * 1.02, Math.max(roadW, wheelW) * gr * 30 / Math.PI));
         this.rpm += (rpmT - this.rpm) * Math.min(1, dt * 25);
         if (this.shiftT > 0) this.shiftT -= dt;
         else if (!this.reverse && this.grounded) {
             const roadRpm = roadW * gr * 30 / Math.PI;
-            if (roadRpm > sp.rpm * 0.95 && this.gear < sp.gears.length) { this.gear++; this.shiftT = 0.15; }
+            if (roadRpm > sp.rpm * 0.95 && this.gear < sp.gears.length) { this.gear++; this.shiftT = sp.shift || 0.15; }
             else if (this.gear > 1) {
                 const lower = roadW * sp.gears[this.gear - 2] * sp.final * 30 / Math.PI;
                 if (lower < sp.rpm * (inp.throttle > 0.5 ? 0.72 : 0.6)) { this.gear--; this.shiftT = 0.1; }

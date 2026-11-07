@@ -35,17 +35,17 @@ export class Showroom {
         this.scene.add(bg);
         this.veh = null;
     }
-    show(carId, paint) {
+    show(carId, paint, roof) {
         if (this.carId !== carId) {
             if (this.car) this.car.dispose();
             const spec = SPECS[carId];
-            this.car = new CarView(this.scene, spec.model, paint);
+            this.car = new CarView(this.scene, spec.model, paint, roof);
             this.veh = new Vehicle(spec, carDims(spec.model));
             this.veh.setPose(0, this.car.dims.cg + 0.03, 0, 0);
             for (const w of this.veh.wheels) { w.contact = true; w.travel = 0.25; }
             this.carId = carId;
         }
-        this.car.setPaint(paint);
+        this.car.setPaint(paint, roof);
     }
     update(dt) {
         this.angle += dt * 0.35;

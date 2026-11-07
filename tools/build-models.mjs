@@ -14,10 +14,10 @@ const RAW = path.join(ROOT, 'raw');
 // name -> [file, scale, options]
 const MODELS = {
     // player / rival cars (car kit units: ~2.3 long; real cars ~4.4 m)
-    car_race:        ['car/race.glb', 1.85, { car: 1 }],
-    car_future:      ['car/race-future.glb', 1.85, { car: 1 }],
-    car_sport:       ['car/sedan-sports.glb', 1.8, { car: 1 }],
-    car_hatch:       ['car/hatchback-sports.glb', 1.95, { car: 1 }],
+    car_city:        ['car/hatchback-sports.glb', [1.8, 2.1, 1.72], { car: 1 }],   // taller, shorter compact hatch (white, red roof)
+    car_hatch:       ['car/hatchback-sports.glb', 1.85, { car: 1 }],
+    car_volt:        ['car/sedan-sports.glb', 1.85, { car: 1, drop: ['spoiler'] }],  // smooth electric saloon
+    car_wedge:       ['proc:wedge', 1, { car: 1 }],                                // angular electric pickup, built below
     car_suvlux:      ['car/suv-luxury.glb', 1.95, { car: 1 }],
     car_police:      ['car/police.glb', 1.95, { car: 1 }],
     car_gt:          ['racing/raceCarRed.glb', 3.5, { car: 1, paintMat: 'red' }],
@@ -119,7 +119,90 @@ function accessor(g, i) {
     return out;
 }
 
+// centre wheels on their own pivot so they can spin; bounding boxes
+function pivots(parts) {
+    for (const p of parts) {
+    let mn = [1e9, 1e9, 1e9], mx = [-1e9, -1e9, -1e9];
+    for (let k = 0; k < p.pos.length; k += 3) for (let c = 0; c < 3; c++) { mn[c] = Math.min(mn[c], p.pos[k + c]); mx[c] = Math.max(mx[c], p.pos[k + c]); }
+    p.min = mn; p.max = mx;
+    p.pivot = [0, 0, 0];
+    if (p.name[0] === 'w') {
+        p.pivot = [(mn[0] + mx[0]) / 2, (mn[1] + mx[1]) / 2, (mn[2] + mx[2]) / 2];
+        for (let k = 0; k < p.pos.length; k += 3) for (let c = 0; c < 3; c++) p.pos[k + c] -= p.pivot[c];
+        p.radius = (mx[1] - mn[1]) / 2;
+    }
+}
+}
+
+// An angular electric pickup made of flat stainless panels (no kit model has that shape). Same scale and frame as
+// the kit cars: +Z forward, +X left, y up. Paint flag 255 (stainless by default), glass 128, light bars 64.
+function wedge() {
+    const body = { name: 'body', pos: [], nrm: [], col: [], idx: [] };
+    const PAINT = [200, 200, 200, 255], GLASS = [28, 34, 44, 128], DARK = [38, 40, 44, 0], LIGHT_F = [255, 250, 235, 64], LIGHT_R = [235, 30, 30, 64];
+    function poly(pts, c) {   // flat convex polygon, counter-clockwise seen from outside (the normal follows the winding)
+        const a = pts[0], b = pts[1], d = pts[2];
+        let nx = (b[1] - a[1]) * (d[2] - a[2]) - (b[2] - a[2]) * (d[1] - a[1]);
+        let ny = (b[2] - a[2]) * (d[0] - a[0]) - (b[0] - a[0]) * (d[2] - a[2]);
+        let nz = (b[0] - a[0]) * (d[1] - a[1]) - (b[1] - a[1]) * (d[0] - a[0]);
+        const l = Math.hypot(nx, ny, nz) || 1; nx /= l; ny /= l; nz /= l;
+        const base = body.pos.length / 3;
+        for (const q of pts) { body.pos.push(q[0], q[1], q[2]); body.nrm.push(nx, ny, nz); body.col.push(...c); }
+        for (let k = 1; k < pts.length - 1; k++) body.idx.push(base, base + k, base + k + 1);
+    }
+    const W = 1.42, lerp = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+    // side profile (z, y): bottom front, nose, roof apex, tail top, bottom back
+    const A = [3.1, 0.78], B = [3.18, 1.28], C = [0.35, 2.42], D = [-3.1, 1.72], E = [-3.1, 0.78];
+    const B2 = lerp(B, C, 0.42), C2 = lerp(C, D, 0.28);
+    const P = (zy, x) => [x, zy[1], zy[0]];
+    // sides (x = +W faces +x, x = -W faces -x)
+    poly([A, B, B2, C, C2, D, E].map(q => P(q, W)).reverse(), PAINT);
+    poly([A, B, B2, C, C2, D, E].map(q => P(q, -W)), PAINT);
+    // around the profile: each edge a strip across the width (normal outwards)
+    const strip = (q1, q2, c, inset) => poly([P(q1, -W + inset), P(q1, W - inset), P(q2, W - inset), P(q2, -W + inset)], c);
+    strip(A, B, PAINT, 0);          // nose
+    strip(B, B2, PAINT, 0);         // bonnet
+    strip(B2, C, GLASS, 0);         // windscreen
+    strip(C, C2, GLASS, 0);         // rear window
+    strip(C2, D, PAINT, 0);         // tonneau cover
+    strip(D, E, PAINT, 0);          // tailgate
+    strip(E, A, DARK, 0);           // floor
+    // side windows (just outside the panels) and the beltline
+    const win = [[1.7, 1.66], [0.42, 2.27], [-0.95, 2.03], [-0.95, 1.66]];
+    poly(win.map(q => P(q, W + 0.01)).reverse(), GLASS);
+    poly(win.map(q => P(q, -W - 0.01)), GLASS);
+    // light bars across the nose and the tailgate
+    poly([[-W + 0.08, 1.16, 3.17], [W - 0.08, 1.16, 3.17], [W - 0.08, 1.24, 3.185], [-W + 0.08, 1.24, 3.185]].map(q => [q[0], q[1], q[2] + 0.005]), LIGHT_F);
+    poly([[-W + 0.08, 1.56, -3.105], [W - 0.08, 1.56, -3.105], [W - 0.08, 1.64, -3.105], [-W + 0.08, 1.64, -3.105]].reverse(), LIGHT_R);
+    // dark wheel arches on both sides (flat trapezoids just outside the panels)
+    for (const wz of [2.05, -2.05]) for (const sx of [1, -1]) {
+        const arch = [[wz + 0.9, 0.78], [wz + 0.55, 1.42], [wz - 0.55, 1.42], [wz - 0.9, 0.78]];
+        const pts = arch.map(q => P(q, sx * (W + 0.005)));
+        poly(sx > 0 ? pts.reverse() : pts, DARK);
+    }
+    // wheels from the kit (big, like an off-roader)
+    const wg = readGlb(path.join(RAW, 'car/wheel-default.glb'));
+    const wp = accessor(wg, wg.json.meshes[0].primitives[0].attributes.POSITION), wn = accessor(wg, wg.json.meshes[0].primitives[0].attributes.NORMAL);
+    const wi = accessor(wg, wg.json.meshes[0].primitives[0].indices);
+    const R = 0.68, S = R / 0.3;
+    const parts = [body];
+    for (const [name, x, z] of [['wfl', 1.08, 2.05], ['wfr', -1.08, 2.05], ['wbl', 1.08, -2.05], ['wbr', -1.08, -2.05]]) {
+        const w = { name, pos: [], nrm: [], col: [], idx: [] };
+        const sx = x > 0 ? 1 : -1;   // the hub faces outwards
+        for (let k = 0; k < wp.length / 3; k++) {
+            w.pos.push(x + wp[k * 3] * S * 1.3 * sx, R + wp[k * 3 + 1] * S, z + wp[k * 3 + 2] * S);
+            w.nrm.push(wn[k * 3] * sx, wn[k * 3 + 1], wn[k * 3 + 2]);
+            const r = Math.hypot(wp[k * 3 + 1], wp[k * 3 + 2]) / 0.3;
+            const c = r > 0.72 ? [34, 34, 38] : [150, 156, 166];   // tyre / aero cover
+            w.col.push(c[0], c[1], c[2], 0);
+        }
+        for (let t = 0; t < wi.length; t += 3) sx > 0 ? w.idx.push(wi[t], wi[t + 1], wi[t + 2]) : w.idx.push(wi[t], wi[t + 2], wi[t + 1]);
+        parts.push(w);
+    }
+    return parts;
+}
+
 function convert(name, [file, scale, opt]) {
+    if (file.startsWith('proc:')) { const parts = wedge(); pivots(parts); return { parts, opt }; }
     const full = path.join(RAW, file);
     const g = readGlb(full);
     const parts = []; // { name, pos[], nrm[], col[], idx[] }
@@ -137,7 +220,9 @@ function convert(name, [file, scale, opt]) {
         const m = mul(parent, mat4FromNode(n));
         const nm = (n.name || '').toLowerCase();
         let partName = top;
-        if (/wheel/.test(nm)) partName = /front|fl|fr/.test(nm) ? (/left/.test(nm) ? 'wfl' : 'wfr') : (/left/.test(nm) ? 'wbl' : 'wbr');
+        // wheels: front / back + left / right; a wheel with no side (the SUV's spare on the tailgate) is a body part
+        if (/wheel/.test(nm)) partName = !/left|right/.test(nm) ? 'spare' : /front|fl|fr/.test(nm) ? (/left/.test(nm) ? 'wfl' : 'wfr') : (/left/.test(nm) ? 'wbl' : 'wbr');
+        if (opt.drop && opt.drop.includes(partName === 'spare' ? 'spare' : nm)) return;
         if (n.mesh != null) {
             let part = parts.find(p => p.name === partName);
             if (!part) { part = { name: partName, pos: [], nrm: [], col: [], idx: [] }; parts.push(part); }
@@ -179,7 +264,8 @@ function convert(name, [file, scale, opt]) {
         for (const c of n.children || []) visit(c, m, partName);
     }
     const scene = g.json.scenes[g.json.scene || 0];
-    const S = [scale, 0, 0, 0, 0, scale, 0, 0, 0, 0, scale, 0, 0, 0, 0, 1];
+    const sc = Array.isArray(scale) ? scale : [scale, scale, scale];   // [x, y, z]: a model can be made taller / shorter
+    const S = [sc[0], 0, 0, 0, 0, sc[1], 0, 0, 0, 0, sc[2], 0, 0, 0, 0, 1];
     for (const r of scene.nodes) visit(r, S, 'body');
 
     // car kit: the paint is the most used saturated colour of the body (by triangle area); glass the darkest blue grey.
@@ -227,18 +313,7 @@ function convert(name, [file, scale, opt]) {
             if (z < minZ + 0.25 && r > 180 && g2 < 90 && b < 90) body.col[v * 4 + 3] = 64;          // tail light
         }
     }
-    // centre wheels on their own pivot so they can spin
-    for (const p of parts) {
-        let mn = [1e9, 1e9, 1e9], mx = [-1e9, -1e9, -1e9];
-        for (let k = 0; k < p.pos.length; k += 3) for (let c = 0; c < 3; c++) { mn[c] = Math.min(mn[c], p.pos[k + c]); mx[c] = Math.max(mx[c], p.pos[k + c]); }
-        p.min = mn; p.max = mx;
-        p.pivot = [0, 0, 0];
-        if (p.name[0] === 'w') {
-            p.pivot = [(mn[0] + mx[0]) / 2, (mn[1] + mx[1]) / 2, (mn[2] + mx[2]) / 2];
-            for (let k = 0; k < p.pos.length; k += 3) for (let c = 0; c < 3; c++) p.pos[k + c] -= p.pivot[c];
-            p.radius = (mx[1] - mn[1]) / 2;
-        }
-    }
+    pivots(parts);
     return { parts, opt };
 }
 
@@ -252,6 +327,15 @@ function mirrorX(parts) {
         if (p.name === 'wfl') p.name = 'wfr'; else if (p.name === 'wfr') p.name = 'wfl';
         else if (p.name === 'wbl') p.name = 'wbr'; else if (p.name === 'wbr') p.name = 'wbl';
     }
+}
+
+function roofLine(parts, name) {
+    // the roof panel: painted surface within ~0.2 m of the highest painted point (a flat-top wedge has none)
+    if (name === 'car_wedge') return 99;
+    const b = parts.find(p => p.name === 'body');
+    let top = -1e9;
+    for (let v = 0; v < b.pos.length / 3; v++) if (b.col[v * 4 + 3] === 255) top = Math.max(top, b.pos[v * 3 + 1]);
+    return +(top - 0.22).toFixed(3);
 }
 
 const chunks = [];
@@ -298,6 +382,8 @@ for (const [name, def] of Object.entries(MODELS)) {
     index[name] = { parts: out };
     if (opt.paintColor) index[name].paint = opt.paintColor.split(',').map(Number);
     if (opt.paintMat) index[name].paint = [232, 85, 83];
+    // the roof line: paint above the top of the side windows can take a second colour (two-tone roofs)
+    if (opt.car) index[name].roofY = roofLine(parts, name);
 }
 fs.mkdirSync(path.join(ROOT, 'assets'), { recursive: true });
 fs.writeFileSync(path.join(ROOT, 'assets/models.bin'), Buffer.concat(chunks));

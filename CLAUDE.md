@@ -45,5 +45,11 @@ the app in the App Store Manager once GitHub Pages has published it.
 - Browser checks (Playwright, SDK from a local My PC checkout `SDK=/path/to/g/sdk/mypc-sdk.js`):
   `tests/shot.mjs "?dev=<route>&bot" out.png 20000`, `tests/wrecks.mjs`, `tests/trace-race.mjs`,
   `tests/fps-proof.mjs` (60 fps under CPU throttling, screenshots). `?dev=<route>&bot&car=gt&2p&time=night`.
+- Steering sign: `Input` gives `ctl.steer` + = LEFT (the car frame, +X left); `node tests/steer-check.mjs` must PASS
+  after any input / vehicle change. Mapping: `node tests/controls-check.mjs` (listens 3 s, any button).
+- Cars: everyday cars first (owner request 2026-11-07); `city` = the owner's own car (white, red roof; `roof` colour
+  per car, `roofY` from tools/build-models.mjs). Original names only, no makers' names or badges.
+- Engine sound: `assets/engine-worklet.js` (loaded by src/audio.js; old oscillators only without AudioWorklet).
+  `node tests/engine-sound.mjs <folder>`: firing Hz must match, no clipping / NaN, WAV per car to listen to.
 - 60 fps on the TV: draw calls stay low (world in 100 m chunks, 4 merged meshes each, culled by distance),
   no allocation per frame, dynamic resolution in `Session.budget`, quality tiers in `src/main.js`.
