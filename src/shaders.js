@@ -167,7 +167,7 @@ export function carMaterial(paint, roof, roofY) {
         uniforms: Object.assign({ uPaint: { value: new THREE.Color(paint || 0xd02020) }, uRoof: { value: new THREE.Color(roof >= 0 ? roof : paint || 0xd02020) }, uRoofY: { value: roofY || 99 }, uBrake: { value: 0 } }, U),
         vertexShader: COMMON + FOG_V + `
 attribute vec4 col;
-uniform vec3 uPaint; uniform float uBrake;
+uniform vec3 uPaint; uniform vec3 uRoof; uniform float uBrake;
 varying vec3 vCol; varying vec3 vN; varying vec3 vWp; varying float vKind; varying float vY; varying float vSh;
 void main() {
   vY = position.y; vSh = col.r * 1.25;
@@ -177,8 +177,8 @@ void main() {
   vN = normalize(mat3(modelMatrix) * normal);
   vWp = wp.xyz;
   float a = col.a;
-  vKind = a > 0.9 ? 3.0 : a > 0.45 ? 2.0 : a > 0.2 ? 1.0 : 0.0;
-  vCol = a > 0.9 ? uPaint * col.r * 1.25 : col.rgb;
+  vKind = a > 0.9 ? 3.0 : a > 0.7 ? 4.0 : a > 0.45 ? 2.0 : a > 0.2 ? 1.0 : 0.0;   // 4: accent parts in the roof colour
+  vCol = a > 0.9 ? uPaint * col.r * 1.25 : a > 0.7 ? uRoof * col.r * 1.25 : col.rgb;
   if (vKind > 0.5 && vKind < 1.5) {     // lights: red at the back glow when braking
     bool rear = position.z < 0.0;
     vCol = rear ? vec3(0.8, 0.05, 0.03) * (1.0 + uBrake * 2.5) : vec3(1.0, 0.97, 0.85) * (1.0 + uNight * 1.5);
@@ -190,7 +190,7 @@ uniform vec3 uRoof; uniform float uRoofY;
 varying vec3 vCol; varying vec3 vN; varying vec3 vWp; varying float vKind; varying float vY; varying float vSh;
 void main() {
   vec3 n = normalize(vN);
-  vec3 base = vKind > 2.5 && vY > uRoofY ? uRoof * vSh : vCol;   // two-tone: the roof panel
+  vec3 base = vKind > 2.5 && vKind < 3.5 && vY > uRoofY ? uRoof * vSh : vCol;   // two-tone: the roof panel
   vec3 v = normalize(cameraPosition - vWp);
   vec3 c = base * light(n);
   float fres = pow(1.0 - max(dot(n, v), 0.0), 3.0);

@@ -7,7 +7,7 @@ import { open } from './shot.mjs';
 import fs from 'node:fs';
 const [, , outDir = 'proof-tmp', thr = '4', secs = '20', ...queries] = process.argv;
 fs.mkdirSync(outDir, { recursive: true });
-const runs = queries.length ? queries : ['?dev=corniche&bot', '?dev=kawassim&bot&car=gt', '?dev=achakar&bot&car=future', '?dev=harris&bot&2p'];
+const runs = queries.length ? queries : ['?dev=corniche&bot', '?dev=kawassim&bot&car=gt', '?dev=achakar&bot&car=wedge', '?dev=corniche&bot&car=city', '?dev=harris&bot&2p'];
 const rows = [];
 for (const q of runs) {
     const W = +(process.env.W || 1280), H = Math.round(W * 9 / 16);

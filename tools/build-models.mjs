@@ -3,10 +3,11 @@
 // Every model is baked to vertex colours (the palette texture or material colour is sampled per vertex), so the
 // whole world can be drawn with one material and merged into a few draw calls per road chunk.
 // Vertex: position float32 x3, normal int8 x4 (xyz + 0), colour uint8 x4 (rgb + flag).
-// Flags: 0 plain, 255 car paint (tinted by the livery), 128 glass, 64 lights (glow at night / brake).
+// Flags: 0 plain, 255 car paint (tinted by the livery), 192 accent (the roof colour), 128 glass, 64 lights (glow at night / brake).
 import fs from 'node:fs';
 import path from 'node:path';
 import { PNG } from 'pngjs';
+import { cityCar } from './model-city.mjs';
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
 const RAW = path.join(ROOT, 'raw');
@@ -14,7 +15,7 @@ const RAW = path.join(ROOT, 'raw');
 // name -> [file, scale, options]
 const MODELS = {
     // player / rival cars (car kit units: ~2.3 long; real cars ~4.4 m)
-    car_city:        ['car/hatchback-sports.glb', [1.8, 2.1, 1.72], { car: 1 }],   // taller, shorter compact hatch (white, red roof)
+    car_city:        ['proc:city', 1, { car: 1 }],                                 // the owner's own car, detailed (tools/model-city.mjs)
     car_hatch:       ['car/hatchback-sports.glb', 1.85, { car: 1 }],
     car_volt:        ['car/sedan-sports.glb', 1.85, { car: 1, drop: ['spoiler'] }],  // smooth electric saloon
     car_wedge:       ['proc:wedge', 1, { car: 1 }],                                // angular electric pickup, built below
@@ -202,7 +203,7 @@ function wedge() {
 }
 
 function convert(name, [file, scale, opt]) {
-    if (file.startsWith('proc:')) { const parts = wedge(); pivots(parts); return { parts, opt }; }
+    if (file.startsWith('proc:')) { const parts = file === 'proc:city' ? cityCar() : wedge(); pivots(parts); return { parts, opt }; }
     const full = path.join(RAW, file);
     const g = readGlb(full);
     const parts = []; // { name, pos[], nrm[], col[], idx[] }

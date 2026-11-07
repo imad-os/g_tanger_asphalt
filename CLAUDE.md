@@ -47,7 +47,8 @@ the app in the App Store Manager once GitHub Pages has published it.
   `tests/fps-proof.mjs` (60 fps under CPU throttling, screenshots). `?dev=<route>&bot&car=gt&2p&time=night`.
 - Steering sign: `Input` gives `ctl.steer` + = LEFT (the car frame, +X left); `node tests/steer-check.mjs` must PASS
   after any input / vehicle change. Mapping: `node tests/controls-check.mjs` (listens 3 s, any button).
-- Cars: everyday cars first (owner request 2026-11-07); `city` = the owner's own car (white, red roof; `roof` colour
+- Cars: everyday cars first (owner request 2026-11-07); `city` = the owner's own car, detailed model built in
+  `tools/model-city.mjs` from their photos (white, red roof; `roof` colour
   per car, `roofY` from tools/build-models.mjs). Original names only, no makers' names or badges.
 - Engine sound: `assets/engine-worklet.js` (loaded by src/audio.js; old oscillators only without AudioWorklet).
   `node tests/engine-sound.mjs <folder>`: firing Hz must match, no clipping / NaN, WAV per car to listen to.

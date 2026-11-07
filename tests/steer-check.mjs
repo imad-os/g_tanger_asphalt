@@ -1,17 +1,23 @@
-// Steering direction check in a real browser: hold the keyboard's right arrow (and then left) during a race and
-// make sure the car moves to the right (then left) of the road. node tests/steer-check.mjs [out.png]
+// Steering direction check in a real browser: in a fresh race each time, hold accelerate (↑) and then one arrow,
+// and measure how the car's heading turns against the road: right arrow must turn right, left arrow left.
+// node tests/steer-check.mjs [out folder]
 import { open } from './shot.mjs';
-const s = await open('?dev=corniche&traffic=0');
-const p = s.page;
-await p.waitForFunction(() => window.TA && TA.session && TA.session.race && TA.session.race.state === 'race', null, { timeout: 60000 });
-await p.waitForTimeout(2500);
-// heading relative to the road: + = pointing to the left of the road
-const off = () => p.evaluate(() => { const r = TA.session.race.players[0], v = r.veh, T = TA.session.race.track, i = v.hint;
-    return (v.R[6] * T.tz[i] - v.R[8] * T.tx[i]) * 57.3; });
-const hold = async (k) => { const a = await off(); await p.keyboard.down(k); await p.waitForTimeout(500); const b = await off(); await p.keyboard.up(k); await p.waitForTimeout(1500); return b - a; };
-const d1 = await hold('ArrowRight');
-if (process.argv[2]) await p.screenshot({ path: process.argv[2] });
-const d2 = await hold('ArrowLeft');
-console.log('heading change (degrees, + = left): right arrow', d1.toFixed(1), ', left arrow', d2.toFixed(1));
-console.log(d1 < -1 && d2 > 1 ? 'PASS: right goes right, left goes left' : 'FAIL: steering is inverted');
-await s.close();
+const dir = process.argv[2];
+async function turn(key) {
+    const s = await open('?dev=corniche&car=city');
+    const p = s.page;
+    await p.waitForFunction(() => window.TA && TA.session && TA.session.race && TA.session.race.state === 'race', null, { timeout: 60000 });
+    // heading against the road: + = pointing to the left of the road
+    const head = () => p.evaluate(() => { const v = TA.session.race.players[0].veh, T = TA.session.race.track, i = v.hint;
+        return (v.R[6] * T.tz[i] - v.R[8] * T.tx[i]) * 57.3; });
+    await p.keyboard.down('ArrowUp'); await p.waitForTimeout(1500);
+    const a = await head();
+    await p.keyboard.down(key); await p.waitForTimeout(700);
+    const b = await head();
+    if (dir) await p.screenshot({ path: dir + '/steer-' + key + '.png' });
+    await s.close();
+    return b - a;
+}
+const r = await turn('ArrowRight'), l = await turn('ArrowLeft');
+console.log('heading change (degrees, + = left): right arrow', r.toFixed(1), ', left arrow', l.toFixed(1));
+console.log(r < -2 && l > 2 ? 'PASS: right goes right, left goes left' : 'FAIL: steering is inverted or does nothing');

@@ -51,8 +51,8 @@ export class Career {
     save() { window.MyPC.save('career', this.d); }
     totalStars() { let n = 0; for (const k in this.d.stars) n += this.d.stars[k]; return n; }
     up(car) { return this.d.up[car] || (this.d.up[car] = { engine: 0, nitro: 0, grip: 0 }); }
-    paintOf(car) { return this.d.paint[car] !== undefined ? this.d.paint[car] : CARS.find(c => c.id === car).paint; }
-    roofOf(car) { return this.d.roof[car] !== undefined ? this.d.roof[car] : CARS.find(c => c.id === car).roof; }
+    paintOf(car) { const c = CARS.find(x => x.id === car) || CARS[0]; return this.d.paint[car] !== undefined ? this.d.paint[car] : c.paint; }
+    roofOf(car) { const c = CARS.find(x => x.id === car) || CARS[0]; return this.d.roof[car] !== undefined ? this.d.roof[car] : c.roof; }
     upCost(car, kind) { const lv = this.up(car)[kind]; const cls = { D: 1, C: 1.4, B: 1.9, A: 2.6, S: 3.4 }[SPECS[car].cls] || 1; return Math.round((lv + 1) * 900 * cls / 100) * 100; }
     buyUp(car, kind) {
         const u = this.up(car); if (u[kind] >= MAXUP) return false;
@@ -65,6 +65,8 @@ export class Career {
     // the starting grid for a race config
     grid(cfg) {
         const g = [];
+        // a car that no longer exists (old saves, old links) races as the player's own car
+        for (const pl of cfg.players) if (!SPECS[pl.car] || SPECS[pl.car].cls === 'T') pl.car = 'city';
         const nP = cfg.players.length;
         const pcls = SPECS[cfg.players[0].car].cls;
         const order = ['D', 'C', 'B', 'A', 'S'];
