@@ -5,6 +5,7 @@ const { chromium } = createRequire(import.meta.url)('playwright');
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
+import zlib from 'node:zlib';
 import { fileURLToPath } from 'node:url';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');   // works on Windows too
 const SDK = process.env.SDK || '/home/user/g/sdk/mypc-sdk.js';
@@ -15,7 +16,14 @@ export function serve(port) {
             const u = decodeURIComponent(q.url.split('?')[0]);
             const f = path.join(ROOT, u === '/' ? 'index.html' : u);
             if (!f.startsWith(ROOT) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) { r.writeHead(404); r.end(); return; }
-            r.writeHead(200, { 'Content-Type': TYPES[path.extname(f)] || 'application/octet-stream', 'Content-Length': fs.statSync(f).size });
+            const type = TYPES[path.extname(f)] || 'application/octet-stream';
+            // like GitHub Pages: gzip when the browser accepts it, Content-Length = the compressed size (RAW=1: plain)
+            if (!process.env.RAW && /gzip/.test(q.headers['accept-encoding'] || '') && !/png|woff2|ogg/.test(type)) {
+                const z = zlib.gzipSync(fs.readFileSync(f));
+                r.writeHead(200, { 'Content-Type': type, 'Content-Encoding': 'gzip', 'Content-Length': z.length });
+                r.end(z); return;
+            }
+            r.writeHead(200, { 'Content-Type': type, 'Content-Length': fs.statSync(f).size });
             fs.createReadStream(f).pipe(r);
         }).listen(port, () => res(s));
     });

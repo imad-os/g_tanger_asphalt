@@ -16,16 +16,22 @@ export async function fetchBin(url, onProgress) {
     const r = await fetch(url);
     if (!r.ok) throw new Error(url + ' ' + r.status);
     if (!onProgress || !r.body || !r.headers.get('content-length')) return r.arrayBuffer();
+    // content-length is the size on the wire: a server that compresses the file (gzip) sends MORE bytes
+    // than it says, so keep the pieces and join them at the end; the size is only used for the progress bar
     const total = +r.headers.get('content-length');
     const reader = r.body.getReader();
-    const out = new Uint8Array(total);
+    const parts = [];
     let got = 0;
     for (;;) {
         const { done, value } = await reader.read();
         if (done) break;
-        out.set(value, got); got += value.length;
-        onProgress(got / total);
+        parts.push(value); got += value.length;
+        onProgress(Math.min(0.99, got / total));
     }
+    const out = new Uint8Array(got);
+    let at = 0;
+    for (const v of parts) { out.set(v, at); at += v.length; }
+    onProgress(1);
     return out.buffer;
 }
 
