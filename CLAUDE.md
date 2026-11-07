@@ -47,6 +47,9 @@ the app in the App Store Manager once GitHub Pages has published it.
   `tests/fps-proof.mjs` (60 fps under CPU throttling, screenshots). `?dev=<route>&bot&car=gt&2p&time=night`.
 - Steering sign: `Input` gives `ctl.steer` + = LEFT (the car frame, +X left); `node tests/steer-check.mjs` must PASS
   after any input / vehicle change. Mapping: `node tests/controls-check.mjs` (listens 3 s, any button).
+- No drift without the drift button (owner report 2026-11-07): steering lock is capped by grip (`Vehicle.lockAt`, AI uses it
+  too), ESC only slows a too-fast rotation, traction control leaves room for side grip, tyre peak 7.5°. `node tests/nodrift-check.mjs`
+  and `tests/nodrift-browser.mjs [folder]` (dev params `&notraffic&rivals=0`) must PASS.
 - Cars: everyday cars first (owner request 2026-11-07); `city` = the owner's own car, detailed model built in
   `tools/model-city.mjs` from their photos (white, red roof; `roof` colour
   per car, `roofY` from tools/build-models.mjs). Original names only, no makers' names or badges.

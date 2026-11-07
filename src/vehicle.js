@@ -22,8 +22,8 @@ export const SPECS = {
     t_heavy:  { model: 'tr_truck', cls: 'T', mass: 3500, power: 120, torque: 450, rpm: 4000, gears: [5.0, 3.0, 1.9, 1.3, 1.0, 0.8], final: 4.1, cda: 1.6, cl: 0, mu: 0.9, steer: 0.55, nitro: 0, drive: 'r', cyl: 6, diesel: 1 }
 };
 
-function curve(a) { // tyre force shape vs slip (rad for lateral, ratio for longitudinal): peak ~0.14
-    return Math.sin(1.45 * Math.atan(9 * a));
+function curve(a) { // tyre force shape vs slip angle (rad): peak at ~0.13 rad (7.5 degrees, a road tyre)
+    return Math.sin(1.45 * Math.atan(14 * a));
 }
 
 export class Vehicle {
@@ -134,6 +134,15 @@ export class Vehicle {
         return Math.min(tq, pw);
     }
 
+    // steering lock (rad) at a forward speed: less at speed, capped by what the tyres can hold (the AI uses it too).
+    // slip = body slip angle (rad): extra lock to catch a slide; drift = handbrake held (full speed lock, for countersteer)
+    lockAt(fwd, slip = 0, drift = false) {
+        const sp = this.spec, v = Math.max(0, fwd);
+        const lock = sp.steer / (1 + v * 0.035);
+        if (drift) return lock;
+        const wb = Math.max(1.5, this.wheels[0].mz - this.wheels[2].mz);
+        return Math.min(lock, Math.atan(wb * sp.mu * G / Math.max(1, v * v)) + 0.13 + slip);
+    }
     step(dt, track, q) {
         const sp = this.spec, R = this.R, inp = this.input;
         const lx = R[0], ly = R[1], lz = R[2], ux = R[3], uy = R[4], uz = R[5], fx = R[6], fy = R[7], fz = R[8];
@@ -143,7 +152,9 @@ export class Vehicle {
         this.latSpeed = this.vx * lx + this.vy * ly + this.vz * lz;
 
         // steering: rate limited, less lock at speed (like a real car's driver would use)
-        const lock = sp.steer * (1 / (1 + Math.max(0, fwd) * 0.035));
+        // and never more than the tyres can hold: a real driver turns the wheel only as far as the car still
+        // turns (grip lock = wheelbase x mu g / v^2), plus the body's slip angle so a slide can still be caught
+        const lock = this.lockAt(fwd, Math.abs(Math.atan2(this.latSpeed, Math.max(1, Math.abs(fwd)))), inp.handbrake > 0);
         const target = inp.steer * lock;
         const rate = 2.6 * dt;
         this.steerNow += Math.max(-rate, Math.min(rate, target - this.steerNow));
@@ -277,10 +288,16 @@ export class Vehicle {
                 w.slipLong = Math.min(1, (Math.abs(Fx) - maxF) / maxF);
                 if (this.assist.tc && isDriven && driveForce > 0) Fx = Math.sign(Fx) * maxF * 0.98;
             }
+            // traction control also keeps the cornering grip: power only up to what the tyre has left beside the
+            // side force (else a powerful rear-drive car slides its tail out in every bend)
+            if (this.assist.tc && isDriven && driveForce > 0 && hb === 0 && Fx > 0) {
+                const room = Math.sqrt(Math.max(0, maxF * maxF - Fy * Fy)) * 0.98;
+                if (Fx > room) Fx = room;
+            }
             // friction circle
             const tot = Math.hypot(Fx, Fy);
             if (tot > maxF) { const k2 = maxF / tot; Fx *= k2; Fy *= k2; }
-            w.slipLat = Math.abs(vLat) > 1.5 ? Math.min(1, (Math.abs(alpha) - 0.08) * 4) : 0;
+            w.slipLat = Math.abs(vLat) > 1.5 ? Math.min(1, (Math.abs(alpha) - 0.13) * 4) : 0;   // sliding = past the tyre's peak
             if (w.slipLat < 0) w.slipLat = 0;
             if (!w.front && hb > 0 && Math.abs(vLong) > 6) w.slipLat = Math.max(w.slipLat, 0.6);
             // wheel spin (visual + rpm): rolling speed, faster when spinning
@@ -310,10 +327,15 @@ export class Vehicle {
         const yawRate = this.wx * ux + this.wy * uy + this.wz * uz;
         if (contacts >= 3 && this.assist.esc && hb === 0 && fwd > 5) {
             const wheelBase = this.wheels[0].mz - this.wheels[2].mz;
-            const want = fwd * Math.tan(steer) / wheelBase;
+            // the turn the steering asks for, but never more than grip allows (mu g / v): asking for more would
+            // twist the car into a spin. It only ever slows a rotation that is too fast (oversteer), never adds one.
+            const cap = sp.mu * G * 1.1 / fwd;
+            const want = Math.max(-cap, Math.min(cap, fwd * Math.tan(steer) / wheelBase));
             const err = yawRate - want;
-            const t2 = -err * this.Iy * 3.2 * this.assist.esc;
-            tx += ux * t2; ty += uy * t2; tz += uz * t2;
+            if (err * yawRate > 0) {
+                const t2 = -err * this.Iy * 6 * this.assist.esc;
+                tx += ux * t2; ty += uy * t2; tz += uz * t2;
+            }
         }
         // drift helper: with the handbrake and steering the car holds a controllable slide
         if (contacts >= 3 && hb > 0 && fwd > 12) {

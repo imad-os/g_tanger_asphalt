@@ -200,7 +200,7 @@ export class Race {
         const fx = R[6], fz = R[8], lx = R[0], lz = R[2];
         const along = dx * fx + dz * fz, side = dx * lx + dz * lz;
         const wheelBase = v.wheels[0].mz - v.wheels[2].mz;
-        let steer = Math.atan2(2 * wheelBase * side, along * along + side * side) / (v.spec.steer / (1 + Math.max(0, v.fwdSpeed) * 0.035));   // the wheel lock the car allows at this speed
+        let steer = Math.atan2(2 * wheelBase * side, along * along + side * side) / v.lockAt(v.fwdSpeed);   // the wheel lock the car allows at this speed
         steer = Math.max(-1, Math.min(1, steer * 1.1));
         // target speed: the tightest bend ahead within braking distance
         const mu = v.mu * (r.traffic ? 0.45 : 0.86 * r.skill + 0.08);
@@ -446,7 +446,7 @@ export class Race {
         const R = v.R;
         const along = dx * R[6] + dz * R[8], side = dx * R[0] + dz * R[2];
         const wb = v.wheels[0].mz - v.wheels[2].mz;
-        let steer = Math.atan2(2 * wb * side, along * along + side * side) / (v.spec.steer / (1 + Math.max(0, v.fwdSpeed) * 0.035));
+        let steer = Math.atan2(2 * wb * side, along * along + side * side) / v.lockAt(v.fwdSpeed);
         steer = Math.max(-1, Math.min(1, steer));
         let vt = t.cruise;
         const i0 = v.hint;

@@ -36,12 +36,12 @@ a 3-cylinder hatch, an electric saloon, an electric wedge pickup, a big SUV, a p
 | Car | Like | 0-100 km/h | Top speed | 100-0 braking | Skid pad |
 | --- | --- | --- | --- | --- | --- |
 | Kasbah City (81 kW, 3-cyl turbo, FWD) | 2019 small hatch, two-tone roof | 9.3 s | 185 km/h | 40.6 m | 0.89 g |
-| Medina Hatch (96 kW, 3-cyl turbo, FWD) | city hatch | 8.6 s | 202 km/h | 40.0 m | 0.89 g |
+| Medina Hatch (96 kW, 3-cyl turbo, FWD) | city hatch | 8.6 s | 202 km/h | 40.0 m | 0.80 g |
 | Volta Saloon (366 kW, electric, AWD) | electric saloon | 4.6 s | 235 km/h | 39.0 m | 0.80 g |
 | Atlas Cruiser (300 kW, V8 turbo, AWD) | big SUV | 4.6 s | 256 km/h | 39.5 m | 0.80 g |
 | Spartel Wedge (447 kW, electric, AWD, 3.1 t) | angular steel pickup | 4.5 s | 183 km/h | 39.4 m | 0.80 g |
-| Interceptor (330 kW, V6 turbo, AWD) | police car | 4.1 s | 297 km/h | 36.9 m | 0.89 g |
-| Hercules GT (620 kW, V10, RWD) | supercar | 3.4 s | 387 km/h | 33.7 m | 0.98 g |
+| Interceptor (330 kW, V6 turbo, AWD) | police car | 4.1 s | 297 km/h | 36.9 m | 0.80 g |
+| Hercules GT (620 kW, V10, RWD) | supercar | 3.4 s | 387 km/h | 33.7 m | 1.08 g |
 
 Engine sound (`assets/engine-worklet.js`, an AudioWorklet): every cylinder's firing pulse goes through an exhaust
 model, so the note follows the real firing rate (3000 rpm: 75 Hz for a 3-cylinder, 200 Hz for a V8; checked by

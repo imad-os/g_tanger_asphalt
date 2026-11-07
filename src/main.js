@@ -161,7 +161,7 @@ MyPC.init({
         if (dev) {   // test hook: ?dev=<route>[&car=gt][&bot][&2p][&time=night]
             const P = new URLSearchParams(location.search), bot = P.has('bot'), car = P.get('car') || 'city';
             const players = [{ car, bot }]; if (P.has('2p')) players.push({ car: P.get('car2') || 'hatch', bot });
-            startRace({ route: dev, players, rivals: 5, quick: true, time: P.get('time') || undefined });
+            startRace({ route: dev, players, rivals: P.has('rivals') ? +P.get('rivals') : 5, quick: true, time: P.get('time') || undefined, traffic: !P.has('notraffic') });
         }
         else App.ui.title();
     },
