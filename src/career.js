@@ -16,17 +16,20 @@ const RIVALS = ['Yassine', 'Salma', 'Karim', 'Nora', 'Omar', 'Imane', 'Hamza', '
 const RIVAL_PAINTS = [0xe8e8e8, 0x2aa1e0, 0x3a3a46, 0xc0392b, 0x9aa3ad, 0xf27b05, 0x1b2a4a, 0x7bc043, 0xe6c229, 0x16a085];
 const RIVAL_ROOFS = [0x0b0b0e, -1, 0xf4f4f4, -1, 0xc8102e, -1];
 export const MAXUP = 5;
+export const UPGRADES = ['engine', 'gearbox', 'grip', 'brakes', 'nitro'];
 
 export function stats(carId, up) {
-    const s = SPECS[carId]; up = up || { engine: 0, nitro: 0, grip: 0 };
-    const p = s.power * (1 + 0.06 * up.engine);
+    const s = SPECS[carId]; up = Object.assign({ engine: 0, nitro: 0, grip: 0, gearbox: 0, brakes: 0 }, up);
+    const p = s.power * (1 + 0.06 * up.engine) * (1 + 0.025 * up.gearbox);
     // where drag eats all the power, or where the engine (motor) runs out of revs in top gear
     const rev = s.rpm * Math.PI / 30 / (s.gears[s.gears.length - 1] * s.final) * 0.34 * 3.6;
     const top = Math.round(Math.min(rev, Math.cbrt(p * 1000 / (0.5 * 1.225 * s.cda)) * 3.6 * 0.9));
     const acc = Math.min(100, Math.round(p / s.mass * 1000 / 5.2));
     const hand = Math.min(100, Math.round((s.mu * (1 + 0.025 * up.grip) - 0.9) * 180 + s.cl * 25));
     const nit = Math.min(100, Math.round(s.nitro * (1 + 0.08 * up.nitro) / s.mass * 1000 * 8));
-    return { top, acc, hand, nit };
+    // braking: grip x the brakes' hold, 100 = 1.3 g
+    const brk = Math.min(100, Math.round(s.mu * (1 + 0.025 * up.grip) * (1 + 0.035 * up.brakes) / 1.3 * 100));
+    return { top, acc, hand, nit, brk };
 }
 
 export class Career {
@@ -36,7 +39,7 @@ export class Career {
         const ids = CARS.map(c => c.id), known = id => ids.includes(id);   // saves from before the car list changed
         this.d = {
             stars: d.stars || {}, credits: d.credits || 3000, owned: ['city', 'hatch'].concat((d.owned || []).filter(id => known(id) && id !== 'city' && id !== 'hatch')), up: d.up || {}, paint: d.paint || {}, roof: d.roof || {},
-            car: known(d.car) ? d.car : 'city', best: d.best || {}, settings: Object.assign({ quality: 'auto', fps: 0, units: 'kmh', easy: [0, 0], esc: [1, 1], cam: 0, mix: { engine: 1, sfx: 1, music: 1 } }, d.settings || {})
+            car: known(d.car) ? d.car : 'city', best: d.best || {}, settings: Object.assign({ quality: 'auto', fps: 0, units: 'kmh', easy: [0, 0], esc: [1, 1], cam: 0, mix: { engine: 1, sfx: 1, music: 1 }, smoke: 1 }, d.settings || {})
         };
         this.events = [];
         const modes = ['race', 'takedown', 'time'];
@@ -50,7 +53,7 @@ export class Career {
     }
     save() { window.MyPC.save('career', this.d); }
     totalStars() { let n = 0; for (const k in this.d.stars) n += this.d.stars[k]; return n; }
-    up(car) { return this.d.up[car] || (this.d.up[car] = { engine: 0, nitro: 0, grip: 0 }); }
+    up(car) { const u = this.d.up[car] || (this.d.up[car] = {}); for (const k of UPGRADES) if (!(u[k] >= 0)) u[k] = 0; return u; }
     paintOf(car) { const c = CARS.find(x => x.id === car) || CARS[0]; return this.d.paint[car] !== undefined ? this.d.paint[car] : c.paint; }
     roofOf(car) { const c = CARS.find(x => x.id === car) || CARS[0]; return this.d.roof[car] !== undefined ? this.d.roof[car] : c.roof; }
     upCost(car, kind) { const lv = this.up(car)[kind]; const cls = { D: 1, C: 1.4, B: 1.9, A: 2.6, S: 3.4 }[SPECS[car].cls] || 1; return Math.round((lv + 1) * 900 * cls / 100) * 100; }
@@ -79,7 +82,7 @@ export class Career {
         for (let k = 0; k < nR; k++) {
             const car = pool[(k * 3 + chapter) % pool.length];
             g.push({ spec: car, paint: RIVAL_PAINTS[(k + chapter) % RIVAL_PAINTS.length], roof: RIVAL_ROOFS[(k + chapter) % RIVAL_ROOFS.length], player: -1, name: RIVALS[(k + chapter) % RIVALS.length],
-                skill: Math.min(1, 0.8 + chapter * 0.018 + (k % 3) * 0.03), upgrades: { engine: Math.min(5, chapter >> 1), nitro: 1, grip: Math.min(5, chapter >> 1) } });
+                skill: Math.min(1, 0.8 + chapter * 0.018 + (k % 3) * 0.03), upgrades: { engine: Math.min(5, chapter >> 1), nitro: 1, grip: Math.min(5, chapter >> 1), gearbox: Math.min(5, chapter >> 2), brakes: Math.min(5, chapter >> 1) } });
         }
         // players start at the back of the grid, like the real thing
         for (let p = 0; p < nP; p++) {

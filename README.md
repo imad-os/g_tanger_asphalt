@@ -35,7 +35,7 @@ a 3-cylinder hatch, an electric saloon, an electric wedge pickup, a big SUV, a p
 
 | Car | Like | 0-100 km/h | Top speed | 100-0 braking | Skid pad |
 | --- | --- | --- | --- | --- | --- |
-| Kasbah City (81 kW, 3-cyl turbo, FWD) | 2019 small hatch, two-tone roof | 9.3 s | 185 km/h | 40.6 m | 0.89 g |
+| Kasbah City (110 kW, 3-cyl turbo, FWD, 1090 kg; game tune so the starter can win) | 2019 small hatch, two-tone roof | 7.0 s | 213 km/h | 39.4 m | 0.89 g |
 | Medina Hatch (96 kW, 3-cyl turbo, FWD) | city hatch | 8.6 s | 202 km/h | 40.0 m | 0.80 g |
 | Volta Saloon (366 kW, electric, AWD) | electric saloon | 4.6 s | 235 km/h | 39.0 m | 0.80 g |
 | Atlas Cruiser (300 kW, V8 turbo, AWD) | big SUV | 4.6 s | 256 km/h | 39.5 m | 0.80 g |

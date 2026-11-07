@@ -31,6 +31,7 @@ export class Session {
     constructor(renderer, routeMeta, routeData, opts, quality) {
         this.renderer = renderer;
         this.quality = quality;
+        this.smoke = opts.smoke !== false;   // tyre smoke (Settings), skid marks stay
         this.scene = new THREE.Scene();
         this.scene.matrixWorldAutoUpdate = true;
         this.track = new Track(routeMeta, routeData.bin);
@@ -67,6 +68,7 @@ export class Session {
             Object.assign(r.ctl, P.ctl);
             r.assist.auto = P.auto ? 1 : 0;
             if (P.double) race.overdrive(r);
+            if (P.spin) race.spin360(r);
             const cam = this.views[r.player];
             if (P.edge.camera) cam.mode = (cam.mode + 1) % 3;
             cam.back = !!P.ctl.look;
@@ -86,7 +88,7 @@ export class Session {
                 const key = k * 4 + w;
                 if (key < 64 && wh.contact && slide > 0.35 && v.speed > 4 && near) {
                     fx.skids.add(key, wh.cx, wh.cy, wh.cz, v.R[0], v.R[2], slide);
-                    if (!fx.low || (k & 1)) if (Math.random() < slide * 0.5) fx.puff(wh.cx, wh.cy, wh.cz, v.vx, v.vz, slide);
+                    if (this.smoke && (!fx.low || (k & 1))) if (Math.random() < slide * 0.5) fx.puff(wh.cx, wh.cy, wh.cz, v.vx, v.vz, slide);
                 } else if (key < 64) fx.skids.add(key, 0, 0, 0, 0, 0, 0);
             }
             if (r.wreck > 0 && Math.random() < 0.3 && near) fx.puff(v.px, v.py, v.pz, 0, 0, 1);

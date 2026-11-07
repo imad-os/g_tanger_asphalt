@@ -39,7 +39,8 @@ class Player {
         this.devs = null;            // null = every device (one player); else a Set of device ids
         this.ctl = { steer: 0, throttle: 0, brake: 0, nitro: 0, handbrake: 0, look: 0 };
         this.edge = { camera: 0, nitro: 0 };
-        this.prev = { camera: 0, nitro: 0 };
+        this.prev = { camera: 0, nitro: 0, drift: 0 };
+        this.lastDriftDown = -1; this.spin = false;
         this.lastNitroDown = -1;
         this.double = false;
         this.auto = true;            // auto accelerate
@@ -214,6 +215,10 @@ export class Input {
             P.double = false;
             if (n && !P.prev.nitro) { if (this.time - P.lastNitroDown < 0.32) P.double = true; P.lastNitroDown = this.time; }
             P.prev.nitro = n;
+            // double press of drift = 360 spin stunt
+            P.spin = false;
+            if (c.handbrake && !P.prev.drift) { if (this.time - P.lastDriftDown < 0.32) { P.spin = true; P.lastDriftDown = -1; } else P.lastDriftDown = this.time; }
+            P.prev.drift = c.handbrake;
         }
     }
     dispose() { window.removeEventListener('keydown', this.onKey); window.removeEventListener('keyup', this.onKey); this.cancelCapture(); }

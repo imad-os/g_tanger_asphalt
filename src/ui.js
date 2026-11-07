@@ -2,7 +2,7 @@
 // button remapping, results. Works with arrows + OK alone; A / Esc / Backspace go back; the focus is a thick
 // bright frame visible from the sofa.
 import { I18n } from './i18n.js';
-import { CARS, PAINTS, stats, MAXUP } from './career.js';
+import { CARS, PAINTS, stats, MAXUP, UPGRADES } from './career.js';
 import { SPECS } from './vehicle.js';
 import { modelInfo } from './assets.js';
 import { ACTIONS, bindLabel, defaultMap } from './input.js';
@@ -235,7 +235,7 @@ export class UI {
     }
     bars(st) {
         const row = (k, v, max) => h('div', { class: 'bar' }, h('span', null, t(k)), h('i', null, h('b', { style: 'transform:scaleX(' + Math.min(1, v / max).toFixed(3) + ')' })), h('em', null, k === 'speed' ? v + ' km/h' : String(v)));
-        return h('div', { class: 'bars' }, row('speed', st.top, 420), row('accel', st.acc, 100), row('handling', st.hand, 100), row('nitroS', st.nit, 100));
+        return h('div', { class: 'bars' }, row('speed', st.top, 420), row('accel', st.acc, 100), row('handling', st.hand, 100), row('braking', st.brk, 100), row('nitroS', st.nit, 100));
     }
     go(cfg, chosen) {
         const c = this.app.career;
@@ -298,7 +298,7 @@ export class UI {
         const u = c.up(sel);
         const upRow = (k) => {
             const full = u[k] >= MAXUP;
-            return h('div', { class: 'uprow' + (ok ? '' : ' locked'), 'data-f': '1', 'data-say': t(k === 'nitro' ? 'nitroS' : k), on: () => { if (ok && c.buyUp(sel, k)) { this.app.sound.ui('ok'); this.garage(sel); this.focusSel('.uprow', ['engine', 'nitro', 'grip'].indexOf(k)); } } },
+            return h('div', { class: 'uprow' + (ok ? '' : ' locked'), 'data-f': '1', 'data-say': t(k === 'nitro' ? 'nitroS' : k), on: () => { if (ok && c.buyUp(sel, k)) { this.app.sound.ui('ok'); this.garage(sel); this.focusSel('.uprow', UPGRADES.indexOf(k)); } } },
                 h('span', { class: 'un' }, t(k === 'nitro' ? 'nitroS' : k)), h('span', { class: 'ul' }, '■'.repeat(u[k]) + '□'.repeat(MAXUP - u[k])),
                 h('span', { class: 'uc' }, full ? 'MAX' : '◆ ' + c.upCost(sel, k)));
         };
@@ -322,7 +322,7 @@ export class UI {
                 h('div', { class: 'cn' }, car.name), h('div', { class: 'cc' }, this.carTag(sel)),
                 this.bars(stats(sel, u)),
                 ok ? this.btn(c.d.car === sel ? t('selected') : t('select'), () => { c.d.car = sel; c.save(); this.garage(sel); }, 'go') : h('div', { class: 'need' }, '🔒 ' + t('need') + ' ' + car.stars + ' ★'),
-                h('h3', null, t('upgrade')), upRow('engine'), upRow('nitro'), upRow('grip'),
+                h('h3', null, t('upgrade')), ...UPGRADES.map(upRow),
                 h('h3', null, t('paint')), sw, hasRoof ? h('h3', null, t('roof')) : null, rw))
         ), { back: () => this.home() });
     }
@@ -337,6 +337,7 @@ export class UI {
                 this.btn(t('controls') + ' — ' + t('p2'), () => this.controls(1)),
                 this.opt(t('graphics'), [{ v: 'auto', l: t('auto') }, { v: 'low', l: t('low') }, { v: 'mid', l: t('mid') }, { v: 'high', l: t('high') }], () => s.quality, v => { s.quality = v; save(); this.app.setQuality && this.app.setQuality(v); }),
                 this.opt(t('fps'), [{ v: 0, l: t('off') }, { v: 1, l: t('on') }], () => s.fps, v => { s.fps = v; save(); }),
+                this.opt(t('smoke'), [{ v: 1, l: t('on') }, { v: 0, l: t('off') }], () => s.smoke === 0 ? 0 : 1, v => { s.smoke = v; save(); if (this.app.session) this.app.session.smoke = !!v; }),
                 // sound mix (on top of My PC's own volumes): ◀ ▶ in steps of 10 %
                 ...['engine', 'sfx', 'music'].map(k => this.opt(t('vol_' + k), [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1].map(v => ({ v, l: Math.round(v * 100) + ' %' })),
                     () => s.mix[k], v => { s.mix[k] = v; save(); this.app.sound.setMix(s.mix); if (k === 'sfx') this.app.sound.ui('switch'); })),

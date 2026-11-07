@@ -167,6 +167,13 @@ export class Race {
         v.topSpeedCap = 1e9;
     }
 
+    // 360 stunt: a double press of drift spins the car once around while it keeps going; a full spin fills nitro
+    spin360(r) {
+        const v = r.veh;
+        if (r.wreck > 0 || r.finished || this.state !== 'race' || v.spinT > 0 || v.fwdSpeed < 12) return;
+        v.startSpin(r.ctl.steer < -0.2 ? -1 : 1);
+        r.spinSaid = false;
+    }
     // Overdrive: a full gauge, fired with a double press: big boost, cars nearby pushed away
     overdrive(r) {
         if (r.nitro < 0.98 || r.over > 0 || this.state !== 'race') return false;
@@ -298,9 +305,11 @@ export class Race {
         if (up < 0.25) { r.upsideT += dt; if (r.upsideT > 0.8) { this.wrecked(r, 'flip'); return; } } else r.upsideT = 0;
         if (Math.abs(v.fwdSpeed) < 2 && this.time > 3 && !r.finished) { r.stuckT += dt; if (r.stuckT > 4 && (r.player < 0 || r.bot || r.assist.auto || r.ctl.throttle > 0.5)) this.respawn(r); } else r.stuckT = 0;
         if (r.player < 0) return;
+        // 360 stunt done: reward
+        if (v.spinDone) { v.spinDone = false; r.spins = (r.spins || 0) + 1; r.nitro = Math.min(1, r.nitro + 0.22); r.perfectWin = 0.6; this.say(r, '360', 'drift'); }
         // drift: the body slides more than ~12 degrees at speed
         const slip = Math.atan2(Math.abs(v.latSpeed), Math.max(1, Math.abs(v.fwdSpeed)));
-        if (v.grounded >= 3 && v.fwdSpeed > 15 && slip > 0.2) {
+        if (v.grounded >= 3 && v.fwdSpeed > 15 && slip > 0.2 && !(v.spinT > 0)) {
             r.driftT += dt; r.nitro = Math.min(1, r.nitro + dt * 0.14);
             if (r.driftT > 0.6 && !r.driftSaid) { r.driftSaid = true; this.say(r, 'DRIFT', 'drift'); }
         } else if (r.driftT > 0) {
@@ -362,6 +371,7 @@ export class Race {
     }
 
     wrecked(r, why, by) {
+        r.veh.stopSpin();
         if (r.wreck > 0) return;
         const v = r.veh;
         if (this.log) this.log.push(this.time.toFixed(1) + ' ' + (r.traffic ? 'traffic' : r.name) + ' ' + why + (by ? ' by ' + (by.traffic ? 'traffic' : by.name) : '') + ' s' + Math.round(r.s) + ' d' + r.d.toFixed(1) + ' v' + Math.round(v.speed * 3.6) + ' hl' + this.track.hl[v.hint].toFixed(1) + ' hr' + this.track.hr[v.hint].toFixed(1));
@@ -378,6 +388,7 @@ export class Race {
     }
 
     respawn(r) {
+        r.veh.stopSpin();
         const v = r.veh, T = this.track;
         const s = Math.max(10, Math.min(T.length - 10, r.s + 5));
         const lane = Math.max(-T.hr[v.hint] + 2, Math.min(T.hl[v.hint] - 2, r.player >= 0 ? -2 : r.lane));

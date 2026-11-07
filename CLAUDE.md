@@ -50,6 +50,10 @@ the app in the App Store Manager once GitHub Pages has published it.
 - No drift without the drift button (owner report 2026-11-07): steering lock is capped by grip (`Vehicle.lockAt`, AI uses it
   too), ESC only slows a too-fast rotation, traction control leaves room for side grip, tyre peak 7.5°. `node tests/nodrift-check.mjs`
   and `tests/nodrift-browser.mjs [folder]` (dev params `&notraffic&rivals=0`) must PASS.
+- 0.3.0 (owner asks 2026-11-07): Settings > Tyre smoke on / off (`settings.smoke`, skid marks stay; dev `&smoke=0`);
+  double press of drift = 360 spin stunt (`Vehicle.startSpin`, `Race.spin360`, +22 % nitro, "360"); upgrades engine / gearbox /
+  wheels & tyres (`grip`) / brakes / nitro (`UPGRADES` in career.js); Kasbah City tuned to compete (owner: "very bad").
+  Checks: `node tests/spin-check.mjs`, `tests/v030-check.mjs [folder]` (garage, smoke, spin in a real browser).
 - Cars: everyday cars first (owner request 2026-11-07); `city` = the owner's own car, detailed model built in
   `tools/model-city.mjs` from their photos (white, red roof; `roof` colour
   per car, `roofY` from tools/build-models.mjs). Original names only, no makers' names or badges.

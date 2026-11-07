@@ -10,7 +10,7 @@ export const SPECS = {
     // id: model, class, mass kg, power kW, peak torque Nm, rpm max, gears, final drive, CdA m2, Cl (downforce), grip mu, steer max rad, nitro kN
     // everyday cars (real numbers: weight with a driver, power, torque, gears) and a few fast ones. snd: cylinders,
     // turbo, ev (electric: one gear, flat torque; rpm max is the motor's), shift: seconds per gear change (manual ~0.45)
-    city:   { model: 'car_city',   cls: 'D', mass: 1165, power: 81, torque: 205, rpm: 6000, gears: [3.42, 1.95, 1.36, 1.05, 0.87, 0.73], final: 4.05, cda: 0.71, cl: 0.02, mu: 0.98, steer: 0.62, nitro: 3.2, drive: 'f', turbo: 1, cyl: 3, shift: 0.45 },
+    city:   { model: 'car_city',   cls: 'D', mass: 1090, power: 110, torque: 250, rpm: 6300, gears: [3.42, 2.0, 1.42, 1.1, 0.9, 0.76], final: 4.05, cda: 0.66, cl: 0.04, mu: 1.06, steer: 0.64, nitro: 4.2, drive: 'f', turbo: 1, cyl: 3, shift: 0.28 },
     hatch:  { model: 'car_hatch',  cls: 'D', mass: 1235, power: 96, torque: 230, rpm: 6200, gears: [3.42, 1.95, 1.36, 1.05, 0.87, 0.73], final: 4.05, cda: 0.64, cl: 0.03, mu: 1.0, steer: 0.62, nitro: 3.6, drive: 'f', turbo: 1, cyl: 3, shift: 0.45 },
     volt:   { model: 'car_volt',   cls: 'C', mass: 1920, power: 366, torque: 510, rpm: 16500, gears: [1], final: 9.0, cda: 0.5, cl: 0.04, mu: 1.04, steer: 0.58, nitro: 7, drive: 'a', ev: 1 },
     suvlux: { model: 'car_suvlux', cls: 'C', mass: 2250, power: 300, torque: 620, rpm: 6500, gears: [4.7, 3.14, 2.1, 1.67, 1.29, 1.0, 0.84, 0.67], final: 3.3, cda: 1.05, cl: 0.03, mu: 1.0, steer: 0.56, nitro: 8, drive: 'a', turbo: 1, cyl: 8 },
@@ -29,11 +29,18 @@ function curve(a) { // tyre force shape vs slip angle (rad): peak at ~0.13 rad (
 export class Vehicle {
     constructor(spec, dims, upgrades) {
         this.spec = spec;
-        const up = upgrades || { engine: 0, nitro: 0, grip: 0 };
+        const up = Object.assign({ engine: 0, nitro: 0, grip: 0, gearbox: 0, brakes: 0 }, upgrades);
+        this.up = up;
         this.power = spec.power * (1 + 0.06 * up.engine);
         this.torqueMax = spec.torque * (1 + 0.06 * up.engine);
         this.nitroForce = spec.nitro * 1000 * (1 + 0.08 * up.nitro);
         this.mu = spec.mu * (1 + 0.025 * up.grip);
+        // gearbox: quicker shifts and a stronger pull through the gears (closer ratios, lighter flywheel)
+        this.shiftTime = (spec.shift || 0.15) * (1 - 0.13 * up.gearbox);
+        this.gearPull = 1 + 0.025 * up.gearbox;
+        // brakes: bigger discs and stickier pads hold more of the tyre's grip when stopping
+        this.brakeGrip = 1 + 0.035 * up.brakes;
+        this.spinT = 0; this.spinDur = 0.9; this.spinDir = 1; this.spinA = 0; this.spinDone = false;
         this.mass = spec.mass;
         this.invMass = 1 / spec.mass;
         // inertia of a box (body dims from the model) with the mass a bit lower than its middle
@@ -134,6 +141,8 @@ export class Vehicle {
         return Math.min(tq, pw);
     }
 
+    startSpin(dir) { this.spinT = this.spinDur; this.spinDir = dir; this.spinA = 0; this.spinDone = false; }
+    stopSpin() { this.spinT = 0; this.spinA = 0; }
     // steering lock (rad) at a forward speed: less at speed, capped by what the tyres can hold (the AI uses it too).
     // slip = body slip angle (rad): extra lock to catch a slide; drift = handbrake held (full speed lock, for countersteer)
     lockAt(fwd, slip = 0, drift = false) {
@@ -176,7 +185,7 @@ export class Vehicle {
         if (this.shiftT > 0) this.shiftT -= dt;
         else if (!this.reverse && this.grounded) {
             const roadRpm = roadW * gr * 30 / Math.PI;
-            if (roadRpm > sp.rpm * 0.95 && this.gear < sp.gears.length) { this.gear++; this.shiftT = sp.shift || 0.15; }
+            if (roadRpm > sp.rpm * 0.95 && this.gear < sp.gears.length) { this.gear++; this.shiftT = this.shiftTime; }
             else if (this.gear > 1) {
                 const lower = roadW * sp.gears[this.gear - 2] * sp.final * 30 / Math.PI;
                 if (lower < sp.rpm * (inp.throttle > 0.5 ? 0.72 : 0.6)) { this.gear--; this.shiftT = 0.1; }
@@ -192,7 +201,7 @@ export class Vehicle {
         const thr = this.reverse ? inp.brake : inp.throttle;
         if (this.shiftT <= 0 && thr > 0) {
             const tq = this.engineTorque(this.rpm) * thr;
-            driveForce = tq * sp.gears[this.gear - 1] * sp.final * 0.88 / TYRE_R;
+            driveForce = tq * sp.gears[this.gear - 1] * sp.final * 0.88 / TYRE_R * this.gearPull;
             if (this.reverse) driveForce = -Math.min(driveForce, 4000);
             if (this.rpm >= sp.rpm * 1.0 && !this.reverse) driveForce *= 0.2;   // limiter
         }
@@ -202,13 +211,16 @@ export class Vehicle {
         // auto hold: stopped with no pedal pressed, the car does not roll down a hill
         if (!this.reverse && inp.throttle < 0.05 && inp.brake < 0.05 && Math.abs(fwd) < 0.8) brakeIn = 0.5;
         if (this.hold) brakeIn = 1;
-        const brakeTotal = brakeIn * this.mass * G * 1.15;    // ~1.15 g of braking at full pedal
+        const brakeTotal = brakeIn * this.mass * G * 1.15 * this.brakeGrip;    // ~1.15 g of braking at full pedal
+        // 360 stunt: the body turns once around while the car keeps its line (tyres barely hold it sideways)
+        const spinning = this.spinT > 0;
+        if (spinning) driveForce = 0;
 
         let fxT = 0, fyT = -this.mass * G, fzT = 0, tx = 0, ty = 0, tz = 0;
         let contacts = 0;
         const steer = this.steerNow;
         const cs = Math.cos(steer), sn = Math.sin(steer);
-        const hb = inp.handbrake;
+        const hb = spinning ? 0 : inp.handbrake;
         const wMass = this.mass / 4;
         for (let k = 0; k < 4; k++) {
             const w = this.wheels[k];
@@ -265,6 +277,7 @@ export class Vehicle {
             const alpha = Math.atan2(vLat, Math.abs(vLong) + 1.5);
             let latGrip = 1;
             if (!w.front && hb > 0) latGrip = 0.42;     // handbrake: rear wheels slide
+            if (spinning) latGrip = 0.06;
             let Fy = -curve(alpha) * maxF * latGrip;
             const stopLat = Math.abs(vLat) * wMass / dt;
             if (Math.abs(Fy) > stopLat) Fy = Fy > 0 ? stopLat : -stopLat;
@@ -295,8 +308,9 @@ export class Vehicle {
                 if (Fx > room) Fx = room;
             }
             // friction circle
+            const lim = bF > 0 && driveForce <= 0 ? maxF * this.brakeGrip : maxF;   // better brakes stop harder
             const tot = Math.hypot(Fx, Fy);
-            if (tot > maxF) { const k2 = maxF / tot; Fx *= k2; Fy *= k2; }
+            if (tot > lim) { const k2 = lim / tot; Fx *= k2; Fy *= k2; }
             w.slipLat = Math.abs(vLat) > 1.5 ? Math.min(1, (Math.abs(alpha) - 0.13) * 4) : 0;   // sliding = past the tyre's peak
             if (w.slipLat < 0) w.slipLat = 0;
             if (!w.front && hb > 0 && Math.abs(vLong) > 6) w.slipLat = Math.max(w.slipLat, 0.6);
@@ -325,7 +339,7 @@ export class Vehicle {
 
         // stability control: damps yaw beyond what the steering asks for (off while the handbrake is held)
         const yawRate = this.wx * ux + this.wy * uy + this.wz * uz;
-        if (contacts >= 3 && this.assist.esc && hb === 0 && fwd > 5) {
+        if (contacts >= 3 && this.assist.esc && hb === 0 && !spinning && fwd > 5) {
             const wheelBase = this.wheels[0].mz - this.wheels[2].mz;
             // the turn the steering asks for, but never more than grip allows (mu g / v): asking for more would
             // twist the car into a spin. It only ever slows a rotation that is too fast (oversteer), never adds one.
@@ -338,7 +352,7 @@ export class Vehicle {
             }
         }
         // drift helper: with the handbrake and steering the car holds a controllable slide
-        if (contacts >= 3 && hb > 0 && fwd > 12) {
+        if (contacts >= 3 && hb > 0 && !spinning && fwd > 12) {
             const t3 = inp.steer * this.Iy * 1.4;
             tx += ux * t3; ty += uy * t3; tz += uz * t3;
         }
@@ -362,6 +376,22 @@ export class Vehicle {
         // integrate (semi-implicit Euler)
         this.vx += fxT * this.invMass * dt; this.vy += fyT * this.invMass * dt; this.vz += fzT * this.invMass * dt;
         this.applyAngular(tx, ty, tz, dt);
+        if (spinning) {
+            // yaw rate follows a smooth bell (sin) whose area is exactly one turn
+            const T = this.spinDur, t0 = T - this.spinT;
+            const want = this.spinDir * Math.PI * Math.PI / T * Math.sin(Math.PI * Math.min(1, t0 / T));
+            const yr = this.wx * ux + this.wy * uy + this.wz * uz;
+            this.wx += ux * (want - yr); this.wy += uy * (want - yr); this.wz += uz * (want - yr);
+            this.spinA += Math.abs(want) * dt;
+            this.spinT -= dt;
+            if (this.spinT <= 0) {
+                this.spinT = 0;
+                const yr2 = this.wx * ux + this.wy * uy + this.wz * uz;
+                this.wx -= ux * yr2; this.wy -= uy * yr2; this.wz -= uz * yr2;
+                // a full turn = the stunt counts (a crash in the middle stops it: see stopSpin)
+                if (this.spinA > Math.PI * 1.8) this.spinDone = true;
+            }
+        }
         // angular damping (air + tyre scrub)
         const ad = contacts ? 0.995 : 0.999;
         this.wx *= ad; this.wy *= ad; this.wz *= ad;
