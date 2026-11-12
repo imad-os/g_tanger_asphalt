@@ -93,7 +93,13 @@ export class Sound {
         if (this.cur !== session || this.engines.length) return;   // the race ended while the worklet loaded
         const n = session.race.players.length;
         for (let p = 0; p < n; p++) { const v = this.engineVoice(session.race.players[p].spec, p + 1); if (v.pan) v.pan.pan.value = n > 1 ? (p ? 0.5 : -0.5) : 0; this.engines.push(v); }
-        this.rival = null;
+        // rivals: one engine voice per kind of rival car (made once here; making / dropping voices during the race
+        // clicked and cost the TV a new audio node each time the nearest rival changed)
+        this.rivals = [];
+        for (const o of session.race.racers) {
+            if (o.player >= 0 || this.rivals.length >= 3 || this.rivals.some(r => r.spec === o.spec)) continue;
+            this.rivals.push(this.engineVoice(o.spec, 7 + this.rivals.length));
+        }
         this.playMusic('time-driving');
     }
     update(session, dt) {
@@ -105,11 +111,14 @@ export class Sound {
             const e = this.engines[p], r = race.players[p], v = r.veh;
             this.voice(e, v, r, t, k, 1);
         }
-        // the nearest rival's engine
-        let best = null, bd = 1e9; const me = race.players[0].veh;
-        for (const o of race.racers) { if (o.player >= 0) continue; const d = Math.hypot(o.veh.px - me.px, o.veh.pz - me.pz); if (d < bd) { bd = d; best = o; } }
-        if (best && (!this.rival || this.rival.spec !== best.spec)) { if (this.rival) this.drop(this.rival); this.rival = this.engineVoice(best.spec, 7); }
-        if (best) this.voice(this.rival, best.veh, best, t, k * Math.max(0, 1 - bd / 60) * 0.6, 0);
+        // each rival voice follows the nearest rival driving that kind of car, louder when close
+        const me = race.players[0].veh;
+        for (let i = 0; i < this.rivals.length; i++) {
+            const e = this.rivals[i];
+            let best = null, bd = 1e9;
+            for (let j = 0; j < race.racers.length; j++) { const o = race.racers[j]; if (o.player >= 0 || o.spec !== e.spec) continue; const d = Math.hypot(o.veh.px - me.px, o.veh.pz - me.pz); if (d < bd) { bd = d; best = o; } }
+            if (best) this.voice(e, best.veh, best, t, k * Math.max(0, 1 - bd / 60) * 0.6, 0);
+        }
     }
     voice(e, v, r, t, k, me) {
         const rpm = v.rpm, thr = Math.max(v.input.throttle, v.nitroOn ? 1 : 0);
@@ -151,8 +160,8 @@ export class Sound {
     }
     drop(e) { for (const n of e.nodes) { try { n.stop(); } catch (_) { /* stopped */ } } if (e.wk) e.wk.node.disconnect(); e.out.disconnect(); }
     end() {
-        for (const e of this.engines.concat(this.rival ? [this.rival] : [])) this.drop(e);
-        this.engines = []; this.rival = null; this.cur = null;
+        for (const e of this.engines.concat(this.rivals || [])) this.drop(e);
+        this.engines = []; this.rivals = []; this.cur = null;
         if (this.ctx) this.playMusic('alpha-dance');
     }
     pause() { if (this.ctx) this.ctx.suspend(); if (this.music) this.music.pause(); }

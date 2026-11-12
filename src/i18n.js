@@ -2,7 +2,7 @@
 const T = {
     en: {
         press: 'Press B to start', career: 'Career', quick: 'Quick race', two: '2 players', garage: 'Garage', settings: 'Settings',
-        back: 'Back', go: 'Race!', locked: 'Locked', stars: 'stars', credits: 'credits', need: 'Needs', choose: 'Choose your car',
+        back: 'Back', go: 'Race!', locked: 'Locked', stars: 'stars', credits: 'credits', need: 'Needs', needPrev: 'Finish in the top 3 in the chapter before', needRace: 'Finish this route\'s race in the top 3', unlocked: 'Unlocked', choose: 'Choose your car',
         route: 'Route', laps: 'Laps', rivals: 'Rivals', traffic: 'Traffic', time: 'Time of day', day: 'Day', sunset: 'Sunset', night: 'Night',
         on: 'On', off: 'Off', sprint: 'Sprint', race: 'Race', takedown: 'Takedown hunt', timeattack: 'Beat the clock',
         raceD: 'Finish in the top 3', takedownD: 'Take down rivals before the finish', timeD: 'Reach the finish before the clock runs out',
@@ -22,7 +22,7 @@ const T = {
     },
     fr: {
         press: 'Appuyez sur B pour commencer', career: 'Carrière', quick: 'Course rapide', two: '2 joueurs', garage: 'Garage', settings: 'Réglages',
-        back: 'Retour', go: 'Course !', locked: 'Verrouillé', stars: 'étoiles', credits: 'crédits', need: 'Il faut', choose: 'Choisissez votre voiture',
+        back: 'Retour', go: 'Course !', locked: 'Verrouillé', stars: 'étoiles', credits: 'crédits', need: 'Il faut', needPrev: 'Finissez dans le top 3 du chapitre précédent', needRace: 'Finissez la course de ce parcours dans le top 3', unlocked: 'Débloqué', choose: 'Choisissez votre voiture',
         route: 'Parcours', laps: 'Tours', rivals: 'Rivaux', traffic: 'Circulation', time: 'Moment', day: 'Jour', sunset: 'Coucher de soleil', night: 'Nuit',
         on: 'Oui', off: 'Non', sprint: 'Sprint', race: 'Course', takedown: 'Chasse aux takedowns', timeattack: 'Contre la montre',
         raceD: 'Finir dans les 3 premiers', takedownD: 'Éliminez des rivaux avant l’arrivée', timeD: 'Arrivez avant la fin du chrono',
@@ -42,7 +42,7 @@ const T = {
     },
     es: {
         press: 'Pulsa B para empezar', career: 'Carrera', quick: 'Carrera rápida', two: '2 jugadores', garage: 'Garaje', settings: 'Ajustes',
-        back: 'Atrás', go: '¡A correr!', locked: 'Bloqueado', stars: 'estrellas', credits: 'créditos', need: 'Necesita', choose: 'Elige tu coche',
+        back: 'Atrás', go: '¡A correr!', locked: 'Bloqueado', stars: 'estrellas', credits: 'créditos', need: 'Necesita', needPrev: 'Termina entre los 3 primeros en el capítulo anterior', needRace: 'Termina la carrera de esta ruta entre los 3 primeros', unlocked: 'Desbloqueado', choose: 'Elige tu coche',
         route: 'Ruta', laps: 'Vueltas', rivals: 'Rivales', traffic: 'Tráfico', time: 'Hora', day: 'Día', sunset: 'Atardecer', night: 'Noche',
         on: 'Sí', off: 'No', sprint: 'Sprint', race: 'Carrera', takedown: 'Caza de takedowns', timeattack: 'Contrarreloj',
         raceD: 'Termina entre los 3 primeros', takedownD: 'Derriba rivales antes de la meta', timeD: 'Llega a la meta antes de que acabe el tiempo',
@@ -62,7 +62,7 @@ const T = {
     },
     ar: {
         press: 'اضغط B للبدء', career: 'المسيرة', quick: 'سباق سريع', two: 'لاعبان', garage: 'المرآب', settings: 'الإعدادات',
-        back: 'رجوع', go: 'انطلق!', locked: 'مقفل', stars: 'نجوم', credits: 'رصيد', need: 'يتطلب', choose: 'اختر سيارتك',
+        back: 'رجوع', go: 'انطلق!', locked: 'مقفل', stars: 'نجوم', credits: 'رصيد', need: 'يتطلب', needPrev: 'أنهِ ضمن المراكز الثلاثة الأولى في الفصل السابق', needRace: 'أنهِ سباق هذا المسار ضمن المراكز الثلاثة الأولى', unlocked: 'تم فتح', choose: 'اختر سيارتك',
         route: 'المسار', laps: 'اللفات', rivals: 'المنافسون', traffic: 'حركة المرور', time: 'الوقت', day: 'نهار', sunset: 'غروب', night: 'ليل',
         on: 'نعم', off: 'لا', sprint: 'سباق مستقيم', race: 'سباق', takedown: 'صيد الإسقاطات', timeattack: 'ضد الساعة',
         raceD: 'أنهِ ضمن الثلاثة الأوائل', takedownD: 'أسقط المنافسين قبل خط النهاية', timeD: 'اصل قبل انتهاء الوقت',

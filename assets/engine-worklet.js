@@ -33,7 +33,7 @@ class Engine extends AudioWorkletProcessor {
         const o = (opt && opt.processorOptions) || {};
         const sr = this.sr = sampleRate;
         this.cyl = o.cyl || 4; this.turbo = !!o.turbo; this.ev = !!o.ev; this.diesel = !!o.diesel;
-        this.rpmMax = o.rpmMax || 6500; this.drive = o.drive || 0.6;
+        this.rpmMax = o.rpmMax || 6500; this.drive = o.drive || (this.cyl >= 6 ? 0.9 : 0.6);   // bigger engines: same loudness
         let seed = (o.seed || 1) * 9301 + 49297;
         this.rand = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
         // firing: evenly spaced over the 720° cycle; small fixed differences between cylinders (real engines are
@@ -61,6 +61,10 @@ class Engine extends AudioWorkletProcessor {
             this.r2[b].set(this.f2 * (b && v8x ? 0.93 : 1), 3.0, sr);
             this.r3[b].set(this.f3, 2.0, sr);
         }
+        // intake roar: noise through a soft band (a real intake is a low "whoosh", not hiss)
+        this.rI = new Res(); this.rI.set(this.diesel ? 520 : 700, 0.8, sr); this.rI2 = new Res(); this.rI2.set(1500, 1.1, sr);
+        this.lpO = 0;   // output low pass (takes off the digital harshness above ~5 kHz)
+        this.lpA = 1 - Math.exp(-TAU * 5200 / sr);
         this.echo = new Float32Array(2048); this.ew = 0;
         this.eLen = Math.round(sr * (n >= 8 ? 0.0062 : n >= 6 ? 0.0055 : 0.0042));
         this.bankLag = n === 8 ? Math.round(sr * 0.0007) : 0;
@@ -140,7 +144,8 @@ class Engine extends AudioWorkletProcessor {
                 y += ex * this.drive;
                 // intake roar: noise shaped by the firing pulses, louder with load and rpm
                 this.hpN = noise - this.lpN; this.lpN += (noise - this.lpN) * 0.18;
-                y += this.hpN * this.env * (0.15 + load * 0.6) * Math.min(1, rpm / this.rpmMax + 0.2) * 1.4;
+                const roar = this.rI.run(noise) * 1.6 + this.rI2.run(noise) * 0.5;
+                y += roar * this.env * (0.1 + load * 0.45) * Math.min(1, rpm / this.rpmMax + 0.2);
                 // valve train tick (diesel: injector clatter, much louder)
                 if (this.tickT < 0.002) { y += noise * (this.diesel ? 0.09 : 0.012) * (1 - this.tickT / 0.002); this.tickT += 1 / sr; }
                 // overrun pops
@@ -158,7 +163,8 @@ class Engine extends AudioWorkletProcessor {
             }
             // DC block, gentle saturation (loud firing compresses like a real recording)
             const hp = y - this.dcx + 0.995 * this.dc; this.dcx = y; this.dc = hp;
-            out[i] = Math.tanh(hp * 1.6) * 0.62 * gain;
+            this.lpO += (Math.tanh(hp * 1.6) - this.lpO) * this.lpA;
+            out[i] = this.lpO * 0.62 * gain;
         }
         for (let c = 1; c < outputs[0].length; c++) outputs[0][c].set(out);
         return true;

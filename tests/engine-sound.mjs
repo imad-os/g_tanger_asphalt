@@ -1,7 +1,8 @@
 // Engine sound check: drives each car with the real physics (idle, a steady 3000 rpm part, a full-throttle run
 // through the gears, a lift, a cruise), renders the engine worklet offline in Chromium with exactly those rpm /
 // load / speed values and saves a WAV per car to listen to. Prints level, clipping and the firing check: at a
-// steady 3000 rpm the strongest low tone must be the firing rate (rpm / 60 * cylinders / 2).
+// steady 3000 rpm the strongest low tone must be the firing rate (rpm / 60 * cylinders / 2). maxStep = the jump between
+// two samples that only 1 in 1000 exceed (over 0.15 = constant static / crackle; single exhaust pops are fine).
 // node tests/engine-sound.mjs <out folder> [car]
 import fs from 'node:fs';
 import path from 'node:path';
@@ -83,7 +84,9 @@ for (const id of ids) {
     }, { tl, spec, SR });
     const d = Float32Array.from(res.data);
     let peak = 0, sum = 0, bad = 0, clip = 0;
-    for (const x of d) { if (!Number.isFinite(x)) bad++; peak = Math.max(peak, Math.abs(x)); sum += x * x; if (Math.abs(x) > 0.98) clip++; }
+    const steps = new Float32Array(d.length);
+    for (let i = 0; i < d.length; i++) { const x = d[i]; if (!Number.isFinite(x)) bad++; peak = Math.max(peak, Math.abs(x)); sum += x * x; if (Math.abs(x) > 0.98) clip++; if (i) steps[i] = Math.abs(x - d[i - 1]); }
+    steps.sort(); const jump = steps[Math.floor(steps.length * 0.999)];   // 1 sample in 1000: steady static, not a single pop
     // firing check on the steady part (1.8 .. 2.9 s): strongest DFT bin between 20 and 400 Hz (5 Hz steps)
     let fire = null;
     if (!spec.ev) {
@@ -98,8 +101,11 @@ for (const id of ids) {
     }
     wav(path.join(OUT, id + '.wav'), d, SR);
     rows.push({ car: id, cyl: spec.ev ? 'EV' : (spec.cyl || 4) + (spec.turbo ? ' turbo' : '') + (spec.diesel ? ' diesel' : ''), seconds: res.dur, renderMs: Math.round(res.ms),
-        cpuShare: +(res.ms / 1000 / res.dur * 100).toFixed(2), peak: +peak.toFixed(2), rms: +Math.sqrt(sum / d.length).toFixed(3), clipped: clip, nan: bad,
+        cpuShare: +(res.ms / 1000 / res.dur * 100).toFixed(2), peak: +peak.toFixed(2), rms: +Math.sqrt(sum / d.length).toFixed(3), clipped: clip, nan: bad, maxStep: +jump.toFixed(2),
         firingHz: fire ? fire.expect : '-', strongestHz: fire ? fire.found : '-' });
 }
 console.table(rows);
+// harsh static: up to 0.3.0 the intake roar was raw white noise (steps of 0.9 all through full throttle)
+const bad2 = rows.filter(r => r.clipped || r.nan || r.maxStep > 0.15 || (r.firingHz !== '-' && Math.abs(r.firingHz - r.strongestHz) > 3));
+console.log(bad2.length ? 'FAIL: ' + bad2.map(r => r.car).join(', ') : 'PASS');
 await browser.close(); server.close();

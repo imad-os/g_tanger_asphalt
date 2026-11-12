@@ -63,7 +63,21 @@ export class Career {
         this.d.credits -= c; u[kind]++; this.save(); return true;
     }
     unlocked(car) { return this.d.owned.includes(car) || this.totalStars() >= CARS.find(c => c.id === car).stars; }
-    eventOpen(ev) { return this.totalStars() >= ev.need; }
+    // progress (owner rule 2026-11-12): a route opens when you finish in the top 3 (1 star or more) in any event of the
+    // route before it; inside a route the Race is open at once, Takedown and Time attack after a top 3 in that Race.
+    // Enough stars (the old rule) also open them, so nothing that was open closes.
+    routeOpen(chapter) {
+        if (chapter <= 0) return true;
+        if (this.events.some(e => e.chapter === chapter && this.totalStars() >= e.need && e.mode === 'race')) return true;
+        return this.events.some(e => e.chapter === chapter - 1 && (this.d.stars[e.id] || 0) > 0);
+    }
+    eventOpen(ev) {
+        if (this.totalStars() >= ev.need) return true;
+        if (!this.routeOpen(ev.chapter)) return false;
+        return ev.mode === 'race' || (this.d.stars[ev.route + ':race'] || 0) > 0;
+    }
+    // why an event is still locked: the route before it, or this route's race
+    lockReason(ev) { return this.routeOpen(ev.chapter) ? 'needRace' : 'needPrev'; }
 
     // the starting grid for a race config
     grid(cfg) {
@@ -98,6 +112,7 @@ export class Career {
         const out = { cfg, rows: [], players: [] };
         const sorted = race.racers.slice().sort((a, b) => a.place - b.place);
         for (const r of sorted) out.rows.push({ place: r.place, name: r.player >= 0 ? (race.players.length > 1 ? 'P' + (r.player + 1) : (window.TA && window.TA.info && window.TA.info.profile ? window.TA.info.profile.name : 'You')) : r.name, player: r.player, time: r.finished ? r.finishTime : 0, car: r.spec.model });
+        const wasOpen = this.events.map(e => this.eventOpen(e));
         for (const p of race.players) {
             const res = { place: p.place, time: p.finished ? p.finishTime : 0, takedowns: p.takedowns, near: p.nearMiss, drift: p.driftScore, wrecks: p.wrecks, stars: 0, credits: 0 };
             const ev = cfg.event;
@@ -117,6 +132,9 @@ export class Career {
         // score for My PC's top 10: better place, more takedowns, faster
         const p0 = out.players[0];
         out.score = Math.max(0, Math.round((10 - p0.place) * 1000 + p0.takedowns * 250 + p0.near * 40 + (p0.time ? Math.max(0, 600 - p0.time) * 5 : 0)));
+        // what this result opened (shown on the results screen)
+        out.unlocked = [];
+        this.events.forEach((e, k) => { if (!wasOpen[k] && this.eventOpen(e)) out.unlocked.push(e); });
         this.save();
         return out;
     }

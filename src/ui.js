@@ -155,7 +155,7 @@ export class UI {
                 const card = h('div', { class: 'rcard' + (open ? '' : ' locked'), 'data-f': '1', 'data-say': r.name, 'data-first': k === 0 ? '1' : undefined, on: () => open ? this.events(r) : null },
                     h('div', { class: 'rk' }, t('chapter') + ' ' + (k + 1)),
                     this.mini(r), h('div', { class: 'rn' }, r.name), h('div', { class: 'ra' }, r.area + ' · ' + (r.length / 1000).toFixed(1) + ' km' + (r.laps ? ' · ' + r.laps + ' ' + t('laps') : '')),
-                    h('div', { class: 'rs' }, open ? starStr(Math.min(9, got), 9) : '🔒 ' + t('need') + ' ' + evs[0].need + ' ★'));
+                    h('div', { class: 'rs' }, open ? starStr(Math.min(9, got), 9) : '🔒 ' + t('needPrev')));
                 return card;
             }))
         ), { back: () => this.home() });
@@ -181,7 +181,7 @@ export class UI {
                 const goal = e.mode === 'race' ? t('raceD') : e.mode === 'takedown' ? t('takedownD') + ' (' + e.goal + ')' : t('timeD') + ' (' + fmtT(e.goal) + ')';
                 return h('div', { class: 'ev' + (open ? '' : ' locked'), 'data-f': '1', 'data-first': k === 0 ? '1' : undefined, 'data-say': t(e.mode === 'time' ? 'timeattack' : e.mode), on: () => open ? this.pickCar({ route: r.id, event: e, laps: e.laps, rivals: e.rivals, mode: e.mode }) : null },
                     h('div', { class: 'em' }, t(e.mode === 'time' ? 'timeattack' : e.mode)), h('div', { class: 'eg' }, goal),
-                    h('div', { class: 'er' }, open ? starStr(c.d.stars[e.id] || 0) + '   ◆ ' + e.reward : '🔒 ' + t('need') + ' ' + e.need + ' ★'));
+                    h('div', { class: 'er' }, open ? starStr(c.d.stars[e.id] || 0) + '   ◆ ' + e.reward : '🔒 ' + t(c.lockReason(e))));
             }))
         ), { back: () => this.career() });
     }
@@ -392,6 +392,8 @@ export class UI {
                     h('div', null, t('drift') + ': ' + p.drift.toFixed(1) + ' s'),
                     h('div', { class: 'rcr' }, '+ ◆ ' + p.credits), p.record ? h('div', { class: 'rrec' }, t('best') + '!') : null)))
             ),
+            res.unlocked && res.unlocked.length ? h('div', { class: 'unl' }, '🔓 ' + t('unlocked') + ': ' + [...new Set(res.unlocked.map(e => {
+                const r = this.app.routes.routes.find(x => x.id === e.route); return e.mode === 'race' ? (r ? r.name : e.route) : (r ? r.name + ' · ' : '') + t(e.mode === 'time' ? 'timeattack' : e.mode); }))].join(', ')) : null,
             h('div', { class: 'row' }, this.btn(t('cont'), () => res.cfg.event ? this.career() : res.cfg.twoP ? this.twoOptions() : this.home(), 'go', { 'data-first': '1' }),
                 this.btn(t('retry'), () => this.app.startRace(res.cfg)))
         ), { back: () => this.home() });

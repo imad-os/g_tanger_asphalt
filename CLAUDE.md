@@ -54,6 +54,11 @@ the app in the App Store Manager once GitHub Pages has published it.
   double press of drift = 360 spin stunt (`Vehicle.startSpin`, `Race.spin360`, +22 % nitro, "360"); upgrades engine / gearbox /
   wheels & tyres (`grip`) / brakes / nitro (`UPGRADES` in career.js); Kasbah City tuned to compete (owner: "very bad").
   Checks: `node tests/spin-check.mjs`, `tests/v030-check.mjs [folder]` (garage, smoke, spin in a real browser).
+- Career progress (owner report 2026-11-12): a route opens after a top 3 (1+ star) in any event of the route before;
+  Takedown / Time attack after a top 3 in that route's race; enough stars still open them (`Career.eventOpen`). The results
+  screen lists what opened. Check: `tests/career-unlock.mjs [folder]`.
+- Engine sound must stay smooth: `tests/engine-sound.mjs` fails on steady static (intake noise is band-passed, output low-passed);
+  rival voices are made once per rival car kind in `Sound.begin`, never created / dropped during a race.
 - Cars: everyday cars first (owner request 2026-11-07); `city` = the owner's own car, detailed model built in
   `tools/model-city.mjs` from their photos (white, red roof; `roof` colour
   per car, `roofY` from tools/build-models.mjs). Original names only, no makers' names or badges.

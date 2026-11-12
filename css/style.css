@@ -118,6 +118,7 @@ canvas#c { position: fixed; inset: 0; display: block; width: 100vw; height: 100v
 .rpn { font-weight: 700; color: var(--teal); }
 .rstars { font-size: calc(var(--u) * 5); color: var(--gold); letter-spacing: .1em; }
 .rcr { color: var(--teal); font-weight: 700; font-size: calc(var(--u) * 3); } .rrec { color: var(--gold); font-weight: 700; }
+.unl { margin-top: calc(var(--u) * 2); padding: calc(var(--u) * 1.2) calc(var(--u) * 2); border: 2px solid var(--teal); border-radius: 8px; color: var(--teal); font-weight: 700; font-size: calc(var(--u) * 2.6); }
 
 #loading { position: fixed; inset: 0; z-index: 20; background: radial-gradient(ellipse at center, #13233a, #04070d); display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: calc(var(--u) * 3); letter-spacing: .1em; }
 #loading .spin { width: calc(var(--u) * 8); height: calc(var(--u) * 8); border: calc(var(--u) * .8) solid rgba(255, 255, 255, .15); border-top-color: var(--sun); border-radius: 50%; animation: spin 0.9s linear infinite; margin-bottom: calc(var(--u) * 3); }
