@@ -75,6 +75,7 @@ export class UI {
         for (const e of all) {
             if (e === this.focus) continue;
             const b = e.getBoundingClientRect();
+            if (!b.width && !b.height) continue;   // hidden (the garage's other tab)
             const bx = b.left + b.width / 2, by = b.top + b.height / 2;
             const vx = bx - ax, vy = by - ay;
             const along = vx * dx + vy * dy;
@@ -283,28 +284,32 @@ export class UI {
             )), { back: () => { this.app.input.players[1].devs = null; this.app.input.players[0].devs = null; this.home(); } });
     }
 
-    garage(sel) {
+    // Garage (redesigned 2026-11-13 so it fits a TV): car list | name, stats, Select, then two tabs, Upgrades and
+    // Paint; only the chosen tab's rows are on screen. Upgrades change the car's look (src/carkit.js), shown live.
+    garage(sel, tab) {
         const c = this.app.career;
         sel = sel || c.d.car;
+        this.gTab = tab || this.gTab || 'up';
         const car = CARS.find(x => x.id === sel);
         const ok = c.unlocked(sel);
-        this.app.showroom.show(sel, c.paintOf(sel), c.roofOf(sel));
+        const u = c.up(sel);
+        const show = (id, p, r) => this.app.showroom.show(id, p, r, c.up(id));
+        show(sel, c.paintOf(sel), c.roofOf(sel));
         const list = h('div', { class: 'carlist' }, CARS.map(x => {
-            const el = h('div', { class: 'ccard' + (c.unlocked(x.id) ? '' : ' locked') + (x.id === sel ? ' sel' : ''), 'data-f': '1', 'data-say': x.name, 'data-first': x.id === sel ? '1' : undefined, on: () => this.garage(x.id) },
+            const el = h('div', { class: 'ccard' + (c.unlocked(x.id) ? '' : ' locked') + (x.id === sel ? ' sel' : ''), 'data-f': '1', 'data-say': x.name, 'data-first': x.id === sel && !tab ? '1' : undefined, on: () => this.garage(x.id) },
                 h('div', { class: 'ccl' }, SPECS[x.id].cls), h('div', { class: 'ccn' }, x.name), c.unlocked(x.id) ? null : h('div', { class: 'ccs' }, '🔒 ' + x.stars + ' ★'));
-            el._onFocus = () => this.app.showroom.show(x.id, c.paintOf(x.id), c.roofOf(x.id));
+            el._onFocus = () => show(x.id, c.paintOf(x.id), c.roofOf(x.id));
             return el;
         }));
-        const u = c.up(sel);
         const upRow = (k) => {
             const full = u[k] >= MAXUP;
-            return h('div', { class: 'uprow' + (ok ? '' : ' locked'), 'data-f': '1', 'data-say': t(k === 'nitro' ? 'nitroS' : k), on: () => { if (ok && c.buyUp(sel, k)) { this.app.sound.ui('ok'); this.garage(sel); this.focusSel('.uprow', UPGRADES.indexOf(k)); } } },
-                h('span', { class: 'un' }, t(k === 'nitro' ? 'nitroS' : k)), h('span', { class: 'ul' }, '■'.repeat(u[k]) + '□'.repeat(MAXUP - u[k])),
+            return h('div', { class: 'uprow' + (ok ? '' : ' locked'), 'data-f': '1', 'data-say': t(k === 'nitro' ? 'nitroS' : k) + ', ' + t('look_' + k), on: () => { if (ok && c.buyUp(sel, k)) { this.app.sound.ui('ok'); this.garage(sel, 'up'); this.focusSel('.uprow', UPGRADES.indexOf(k)); } } },
+                h('span', { class: 'un' }, t(k === 'nitro' ? 'nitroS' : k), h('small', null, t('look_' + k))), h('span', { class: 'ul' }, '■'.repeat(u[k]) + '□'.repeat(MAXUP - u[k])),
                 h('span', { class: 'uc' }, full ? 'MAX' : '◆ ' + c.upCost(sel, k)));
         };
         const sw = h('div', { class: 'swatches' }, PAINTS.map((p, k) => {
-            const e = h('div', { class: 'sw' + (c.paintOf(sel) === p ? ' sel' : ''), 'data-f': '1', style: 'background:#' + p.toString(16).padStart(6, '0'), on: () => { c.d.paint[sel] = p; c.save(); this.app.showroom.show(sel, p, c.roofOf(sel)); this.garage(sel); this.focusSel('.sw', k); } });
-            e._onFocus = () => this.app.showroom.show(sel, p, c.roofOf(sel));
+            const e = h('div', { class: 'sw' + (c.paintOf(sel) === p ? ' sel' : ''), 'data-f': '1', 'data-say': t('paint'), style: 'background:#' + p.toString(16).padStart(6, '0'), on: () => { c.d.paint[sel] = p; c.save(); this.garage(sel, 'paint'); this.focusSel('.sw:not(.rf)', k); } });
+            e._onFocus = () => show(sel, p, c.roofOf(sel));
             return e;
         }));
         // roof colour (two-tone): the first swatch = same as the body
@@ -313,17 +318,34 @@ export class UI {
         const rw = hasRoof ? h('div', { class: 'swatches' }, roofs.map((p, k) => {
             const bg = p < 0 ? 'background:linear-gradient(135deg,#' + c.paintOf(sel).toString(16).padStart(6, '0') + ' 50%,#555 50%)' : 'background:#' + p.toString(16).padStart(6, '0');
             const e = h('div', { class: 'sw rf' + (c.roofOf(sel) === p ? ' sel' : ''), 'data-f': '1', 'data-say': p < 0 ? t('sameRoof') : t('roof'), style: bg,
-                on: () => { c.d.roof[sel] = p; c.save(); this.app.showroom.show(sel, c.paintOf(sel), p); this.garage(sel); this.focusSel('.sw.rf', k); } });
-            e._onFocus = () => this.app.showroom.show(sel, c.paintOf(sel), p);
+                on: () => { c.d.roof[sel] = p; c.save(); this.garage(sel, 'paint'); this.focusSel('.sw.rf', k); } });
+            e._onFocus = () => show(sel, c.paintOf(sel), p);
             return e;
         })) : null;
-        this.render('garage', () => h('div', { class: 'wrap' }, this.topbar(), h('h1', null, t('garage')),
+        const upPane = h('div', { class: 'gpane' + (this.gTab === 'up' ? '' : ' off') }, ...UPGRADES.map(upRow));
+        const paintPane = h('div', { class: 'gpane' + (this.gTab === 'paint' ? '' : ' off') }, sw, hasRoof ? h('h3', null, t('roof')) : null, rw);
+        // tabs: moving onto one shows its rows (no OK needed); OK also works
+        const tabs = h('div', { class: 'gtabs' }, ['up', 'paint'].map(k => {
+            const e = h('div', { class: 'gtab' + (this.gTab === k ? ' on' : ''), 'data-f': '1', 'data-say': t(k === 'up' ? 'upgrade' : 'paint'), on: () => pick(k) }, t(k === 'up' ? 'upgrade' : 'paint'));
+            e._onFocus = () => pick(k);
+            // ◀ ▶ go straight to the other tab (the rows below are close enough to win the plain spatial move)
+            e._lr = (d) => { const i = k === 'up' ? 0 : 1, j = i + ((I18n.lang === 'ar' ? -d : d) > 0 ? 1 : -1);   // d: screen direction (Arabic: tabs right to left)
+                if (j === 0 || j === 1) this.setFocus(tabs.children[j]); else this.move(d, 0); };
+            return e;
+        }));
+        const pick = (k) => {
+            if (this.gTab === k) return;
+            this.gTab = k;
+            tabs.querySelectorAll('.gtab').forEach((e, i) => e.classList.toggle('on', ['up', 'paint'][i] === k));
+            upPane.classList.toggle('off', k !== 'up'); paintPane.classList.toggle('off', k !== 'paint');
+            show(sel, c.paintOf(sel), c.roofOf(sel));
+        };
+        this.render('garage', () => h('div', { class: 'wrap garage' }, this.topbar(), h('h1', null, t('garage')),
             h('div', { class: 'pick' }, list, h('div', { class: 'carinfo' },
                 h('div', { class: 'cn' }, car.name), h('div', { class: 'cc' }, this.carTag(sel)),
                 this.bars(stats(sel, u)),
                 ok ? this.btn(c.d.car === sel ? t('selected') : t('select'), () => { c.d.car = sel; c.save(); this.garage(sel); }, 'go') : h('div', { class: 'need' }, '🔒 ' + t('need') + ' ' + car.stars + ' ★'),
-                h('h3', null, t('upgrade')), ...UPGRADES.map(upRow),
-                h('h3', null, t('paint')), sw, hasRoof ? h('h3', null, t('roof')) : null, rw))
+                tabs, upPane, paintPane))
         ), { back: () => this.home() });
     }
     focusSel(sel, k) { const l = this.root.querySelectorAll(sel); if (l[k]) this.setFocus(l[k]); }

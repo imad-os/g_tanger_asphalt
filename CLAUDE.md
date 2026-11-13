@@ -72,3 +72,6 @@ the app in the App Store Manager once GitHub Pages has published it.
   `node tests/engine-sound.mjs <folder>`: firing Hz must match, no clipping / NaN, WAV per car to listen to.
 - 60 fps on the TV: draw calls stay low (world in 100 m chunks, 4 merged meshes each, culled by distance),
   no allocation per frame, dynamic resolution in `Session.budget`, quality tiers in `src/main.js`.
+- Garage + upgrade looks (owner request 2026-11-13, 0.3.3): garage = car list | stats + Select | tabs Upgrade / Paint (only one pane
+  shown, so every row fits a 1080 TV); `src/carkit.js` `buildKit` adds the parts each upgrade level shows (exhaust, scoop, diffuser,
+  wing, rims, calipers / discs, neon), `CarView.setKit(up)` in the garage and on the players' cars only. Check: `tests/garage-check.mjs [folder]`.

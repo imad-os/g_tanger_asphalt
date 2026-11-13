@@ -35,7 +35,7 @@ export class Showroom {
         this.scene.add(bg);
         this.veh = null;
     }
-    show(carId, paint, roof) {
+    show(carId, paint, roof, up) {
         if (this.carId !== carId) {
             if (this.car) this.car.dispose();
             const spec = SPECS[carId];
@@ -46,6 +46,7 @@ export class Showroom {
             this.carId = carId;
         }
         this.car.setPaint(paint, roof);
+        this.car.setKit(up || null);
     }
     update(dt) {
         this.angle += dt * 0.35;

@@ -96,6 +96,18 @@ canvas#c { position: fixed; inset: 0; display: block; width: 100vw; height: 100v
 .bar i b { display: block; height: 100%; background: linear-gradient(90deg, var(--teal), var(--gold)); transform-origin: left; }
 .uprow { display: flex; align-items: center; background: var(--panel); border: 1px solid var(--line); padding: calc(var(--u) * .9) calc(var(--u) * 2); margin-bottom: calc(var(--u) * .8); font-size: calc(var(--u) * 2.3); }
 .uprow .un { flex: 1; } .uprow .ul { color: var(--teal); letter-spacing: .2em; margin-right: calc(var(--u) * 2); } .uprow .uc { color: var(--gold); font-weight: 700; }
+.garage .cn { font-size: calc(var(--u) * 4.2); } .garage .cc { margin-bottom: calc(var(--u) * 1.2); }
+.garage .bars { gap: calc(var(--u) * .6); margin-bottom: calc(var(--u) * 1.4); } .garage .bar { font-size: calc(var(--u) * 2); }
+.gtabs { display: flex; gap: calc(var(--u) * 1); margin: calc(var(--u) * 1.6) 0 calc(var(--u) * 1); }
+.gtab { flex: 1; text-align: center; padding: calc(var(--u) * .8); background: var(--panel); border: 1px solid var(--line); font-weight: 700; text-transform: uppercase; font-size: calc(var(--u) * 2.2); color: rgba(255, 255, 255, .6); }
+.gtab.on { color: #fff; border-color: var(--teal); box-shadow: inset 0 calc(var(--u) * -.4) 0 var(--teal); }
+.gpane.off { display: none; }
+.garage .uprow .un { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-right: calc(var(--u) * 1); }
+.uprow .un small { margin-left: calc(var(--u) * 1); font-size: calc(var(--u) * 1.6); color: rgba(255, 255, 255, .55); }
+.garage .sw { width: calc(var(--u) * 4); height: calc(var(--u) * 4); } .garage .swatches { gap: calc(var(--u) * .8); }
+.garage .gpane h3 { margin: calc(var(--u) * 1.2) 0 calc(var(--u) * .8); }
+.garage h1 { margin-bottom: 0; }
+.garage .uprow { padding: calc(var(--u) * .6) calc(var(--u) * 1.6); margin-bottom: calc(var(--u) * .6); }
 .swatches { display: flex; flex-wrap: wrap; gap: calc(var(--u) * 1); }
 .sw { width: calc(var(--u) * 5); height: calc(var(--u) * 5); border: 2px solid rgba(255, 255, 255, .3); }
 .sw.sel { border-color: #fff; border-width: 4px; }

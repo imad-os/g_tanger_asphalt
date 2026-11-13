@@ -16,6 +16,7 @@ export class Racer {
         const dims = carDims(spec.model);
         this.veh = new Vehicle(spec, dims, opts.upgrades);
         this.view = new CarView(race.scene, spec.model, paint, opts.roof);
+        if (opts.player >= 0 && opts.upgrades) this.view.setKit(opts.upgrades);   // the players' upgrades show on their cars
         this.player = opts.player;          // 0 / 1 for humans, -1 for AI
         this.name = opts.name || '';
         this.skill = opts.skill || 0.9;

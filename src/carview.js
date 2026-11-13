@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import { partGeometry, modelInfo } from './assets.js';
 import { carMaterial, glowMaterial, shadeMaterial } from './shaders.js';
+import { buildKit } from './carkit.js';
 
 const WHEELS = ['wfl', 'wfr', 'wbl', 'wbr'];
 
@@ -48,6 +49,7 @@ export class CarView {
         this.scene = scene;
         this.root = new THREE.Group();
         this.root.matrixAutoUpdate = false;
+        this.model = model;
         const info = modelInfo(model);
         this.mat = carMaterial(paint, roof, info.roofY);
         this.body = new THREE.Mesh(partGeometry(model, 'body'), this.mat);
@@ -83,6 +85,22 @@ export class CarView {
         this.q = new THREE.Quaternion(); this.e = new THREE.Euler(); this.tmp = new THREE.Matrix4(); this.v3 = new THREE.Vector3(); this.s3 = new THREE.Vector3(1, 1, 1);
         scene.add(this.root);
         this.lod = 0;
+    }
+    // upgrade looks (src/carkit.js): exhaust, scoop, wing, rims, calipers, neon. null / all 0 = the plain car
+    setKit(up) {
+        const key = up ? ['engine', 'gearbox', 'grip', 'brakes', 'nitro'].map(k => up[k] || 0).join('') : '';
+        if (key === this.kitKey) return;
+        this.kitKey = key;
+        if (this.kit) { for (const m of this.kit) { m.parent.remove(m); m.geometry.dispose(); } }
+        this.kit = [];
+        if (!up) return;
+        let k;
+        try { k = buildKit(this.model, this.dims, up); } catch (e) { return; }
+        const add = (parent, geo, mat) => { if (!geo) return; const m = new THREE.Mesh(geo, mat); m.matrixAutoUpdate = false; parent.add(m); this.kit.push(m); };
+        add(this.root, k.body, this.mat);
+        flameMat = flameMat || glowMaterial();
+        add(this.root, k.glow, flameMat);
+        for (let i = 0; i < 4; i++) add(this.wheels[i], k.wheel[i], this.mat);
     }
     // roof: a second colour for the roof panel (-1 / undefined = the body colour)
     setPaint(hex, roof) { this.mat.uniforms.uPaint.value.setHex(hex); this.mat.uniforms.uRoof.value.setHex(roof >= 0 ? roof : hex); }
@@ -134,6 +152,7 @@ export class CarView {
     }
     dispose() {
         this.scene.remove(this.root); this.scene.remove(this.shadow);
+        if (this.kit) for (const m of this.kit) m.geometry.dispose();
         this.mat.dispose();
     }
 }
