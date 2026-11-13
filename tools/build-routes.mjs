@@ -115,6 +115,30 @@ function smooth(pts, radius, iters, closed) {
     return p;
 }
 
+const RUNOFF = 560;
+// follow the real road ahead from the end of a path: at each junction the way that turns least (the same street first)
+function runOff(path, used, want) {
+    const out = [];
+    let a = nodes.get(path[path.length - 2].id), b = nodes.get(path[path.length - 1].id), way = path[path.length - 1].way, got = 0;
+    const seen = new Set(path.map(p => p.id));
+    while (got < want) {
+        const dx = b.x - a.x, dz = b.z - a.z, dl = Math.hypot(dx, dz) || 1;
+        let best = null, bs = -1e9;
+        for (const e of b.edges) {
+            if (seen.has(e.to)) continue;
+            const c = nodes.get(e.to), ex = c.x - b.x, ez = c.z - b.z, el = Math.hypot(ex, ez) || 1;
+            const dot = (dx * ex + dz * ez) / dl / el;
+            if (dot < 0.5) continue;                       // no sharp turns in the run-off
+            const score = dot + (e.way === way ? 0.4 : 0) - (CLASS[e.way.h] || 3) * 0.05;
+            if (score > bs) { bs = score; best = e; }
+        }
+        if (!best) break;
+        seen.add(best.to); out.push({ id: best.to, way: best.way });
+        got += best.len; a = b; b = nodes.get(best.to); way = best.way;
+    }
+    return out;
+}
+
 function buildRoute(def) {
     // waypoints -> path through the real network
     const wps = def.way.map(([la, lo]) => nearestNode(la, lo));
@@ -127,6 +151,9 @@ function buildRoute(def) {
         path = path.concat(seg);
     }
     const closed = def.laps > 0;
+    // open routes: the road goes on 560 m past the finish line (the real road ahead), so cars can slow down and stop
+    let endNode = null;
+    if (!closed) { endNode = nodes.get(path[path.length - 1].id); path = path.concat(runOff(path, used, RUNOFF)); }
     let pts = path.map(p => { const n = nodes.get(p.id); return { x: n.x, z: n.z, w: WIDTH[p.way ? p.way.h : 'secondary'] || 6, name: p.way ? p.way.n : '' }; });
     if (closed && Math.hypot(pts[0].x - pts[pts.length - 1].x, pts[0].z - pts[pts.length - 1].z) < 1) pts.pop();
     const names = [];
@@ -145,6 +172,13 @@ function buildRoute(def) {
         pts.push({ ...pts[0] });
     }
     const n = pts.length;
+    // the finish line: where the waypoints ended (run-off beyond it); at least 500 m of road after it
+    let finishI = n - 1 - 20;
+    if (endNode) {
+        let bd = 1e18;
+        for (let i = n >> 1; i < n; i++) { const d = Math.hypot(pts[i].x - endNode.x, pts[i].z - endNode.z); if (d < bd) { bd = d; finishI = i; } }
+        finishI = Math.min(finishI, n - 1 - Math.round(500 / STEP));
+    }
     // heights: terrain under the road, smoothed, grade limited (real roads cut and fill)
     let y = pts.map(p => terrain(p.x, p.z));
     for (let it = 0; it < 3; it++) {
@@ -198,7 +232,7 @@ function buildRoute(def) {
     // ramps: on long, straight, flat-ish parts (not in the first 300 m, not in the last 200 m)
     const ramps = [];
     let lastRamp = -1e9;
-    for (let i = 150; i < n - 100; i++) {
+    for (let i = 150; i < (closed ? n - 100 : finishI - 100); i++) {
         const s = i * STEP;
         if (s - lastRamp < 650) continue;
         let straight = true;
@@ -329,7 +363,7 @@ function buildRoute(def) {
         // keep the budget: at most ~2600 buildings per route, the closest first
         if (bld.length > 2600) bld = bld.slice(0, 2600);
     }
-    return { def, pts, y, hw, gl, gr, flags, ramps, closed, names, bld, n, ter };
+    return { def, pts, y, hw, gl, gr, flags, ramps, closed, names, bld, n, ter, finish: closed ? 0 : finishI * STEP };
 }
 
 function writeRoute(R) {
@@ -354,7 +388,7 @@ function writeRoute(R) {
     // minimap: every 10th sample
     const mm = [];
     for (let i = 0; i < n; i += 10) mm.push(Math.round(R.pts[i].x), Math.round(R.pts[i].z));
-    return { id: R.def.id, name: R.def.name, area: R.def.area, laps: R.def.laps, closed: R.closed, n, length: Math.round((n - 1) * STEP),
+    return { id: R.def.id, name: R.def.name, area: R.def.area, laps: R.def.laps, closed: R.closed, n, length: Math.round((n - 1) * STEP), finish: R.finish,
         ground: GROUND, ramps: R.ramps, roads: R.names.slice(0, 6), minimap: mm, buildings: R.bld.length,
         climb: Math.round(Math.max(...R.y) - Math.min(...R.y)) };
 }
@@ -369,7 +403,7 @@ for (const def of ROUTES) {
     const m = writeRoute(R);
     index.push(m);
     let cross = 0; for (let i = 0; i < R.n; i++) if (R.flags[i] & 4) cross++;
-    console.log(def.id.padEnd(12), 'cross', cross, (m.length + ' m').padEnd(8), 'climb', m.climb + ' m', 'ramps', m.ramps.length, 'bld', m.buildings, '|', m.roads.slice(0, 3).join(' / '));
+    console.log(def.id.padEnd(12), 'cross', cross, (m.length + ' m').padEnd(8), 'finish', m.finish ? m.finish + ' m (run-off ' + (m.length - m.finish) + ' m)' : 'laps', 'climb', m.climb + ' m', 'ramps', m.ramps.length, 'bld', m.buildings, '|', m.roads.slice(0, 3).join(' / '));
 }
 fs.writeFileSync('assets/routes.json', JSON.stringify({ license: 'Road shapes: (c) OpenStreetMap contributors, ODbL 1.0. Heights: AWS Terrain Tiles.', routes: index }));
 // the centre lines, for the buildings request (osm/request.json, job "buildings")

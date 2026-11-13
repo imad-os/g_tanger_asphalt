@@ -205,7 +205,7 @@ export class World {
                 }
             }
             // start gantry
-            if (i === 8 || (i === T.n - 12 && !T.closed)) this.gantry(core, i);
+            if (i === 8 || (!T.closed && i === Math.round(T.finish / STEP))) this.gantry(core, i);
         }
         // ramps (wedges with yellow / black chevrons)
         for (const R of T.ramps) {

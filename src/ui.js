@@ -154,7 +154,7 @@ export class UI {
                 const open = c.eventOpen(evs[0]);
                 const card = h('div', { class: 'rcard' + (open ? '' : ' locked'), 'data-f': '1', 'data-say': r.name, 'data-first': k === 0 ? '1' : undefined, on: () => open ? this.events(r) : null },
                     h('div', { class: 'rk' }, t('chapter') + ' ' + (k + 1)),
-                    this.mini(r), h('div', { class: 'rn' }, r.name), h('div', { class: 'ra' }, r.area + ' · ' + (r.length / 1000).toFixed(1) + ' km' + (r.laps ? ' · ' + r.laps + ' ' + t('laps') : '')),
+                    this.mini(r), h('div', { class: 'rn' }, r.name), h('div', { class: 'ra' }, r.area + ' · ' + ((r.finish || r.length) / 1000).toFixed(1) + ' km' + (r.laps ? ' · ' + r.laps + ' ' + t('laps') : '')),
                     h('div', { class: 'rs' }, open ? starStr(Math.min(9, got), 9) : '🔒 ' + t('needPrev')));
                 return card;
             }))

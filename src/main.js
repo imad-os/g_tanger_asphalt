@@ -75,7 +75,12 @@ function update(dt) {
         App.hud.update(App.session, dt);
         App.sound.update(App.session, dt);
         const race = App.session.race;
-        if (race.allPlayersDone() && !App.finishT) App.finishT = 3.5;
+        // results once every player's car has come to a stop after the line (it drives itself there), 1.2 s later;
+        // never more than 16 s after the last player finished
+        if (race.allPlayersDone() && !App.finishT) {
+            App.finishWait = (App.finishWait || 0) + dt;
+            if (App.finishWait > 16 || race.players.every(p => Math.abs(p.veh.fwdSpeed) < 0.6 || p.wreck > 0)) App.finishT = 1.2;
+        }
         if (App.finishT) { App.finishT -= dt; if (App.finishT <= 0) { App.finishT = 0; endRace(); } }
     } else if (App.showroom && App.ui.wantsShowroom()) App.showroom.update(dt);
     App.ui.tick(dt);
@@ -87,6 +92,7 @@ function draw(ms) {
 
 // ---- races ----
 async function startRace(cfg) {
+    App.finishT = 0; App.finishWait = 0;
     // cfg: { route, players: [{ car, paint, upgrades, assist }], rivals, laps, mode, event }
     App.ui.loading(true);
     App.state = 'loading';

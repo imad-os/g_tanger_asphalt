@@ -34,6 +34,8 @@ export class Track {
             this.curv[i] = Math.asin(Math.max(-1, Math.min(1, cr))) / dt; // + = turning left... sign checked by AI only
         }
         this.length = (this.n - 1) * STEP;
+        // open routes: the finish line (the road goes on ~500 m after it); older data: 40 m before the end
+        this.finish = this.closed ? 0 : meta.finish || this.length - 40;
         this.ramps = meta.ramps || [];   // [{ s, d, w, len, h }]
         this.rampIdx = new Int16Array(this.n).fill(-1);
         for (let r = 0; r < this.ramps.length; r++) {

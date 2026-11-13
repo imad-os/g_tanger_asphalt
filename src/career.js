@@ -46,7 +46,7 @@ export class Career {
         this.routes.forEach((r, k) => {
             modes.forEach((m, j) => {
                 this.events.push({ id: r.id + ':' + m, route: r.id, mode: m, chapter: k, need: k * 4 + j * 2, laps: r.laps,
-                    rivals: m === 'time' ? 0 : 5, goal: m === 'takedown' ? 3 + Math.min(4, k >> 1) : m === 'time' ? Math.round(r.length / (32 + k * 0.6)) : 3,
+                    rivals: m === 'time' ? 0 : 5, goal: m === 'takedown' ? 3 + Math.min(4, k >> 1) : m === 'time' ? Math.round((r.finish || r.length) / (32 + k * 0.6)) : 3,
                     reward: 1500 + k * 400 + j * 300 });
             });
         });

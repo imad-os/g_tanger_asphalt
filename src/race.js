@@ -42,7 +42,7 @@ export class Race {
         this.time = -3.5;          // countdown
         this.state = 'countdown';
         this.laps = track.closed ? Math.max(1, opts.laps || 2) : 1;
-        this.total = track.closed ? track.length * this.laps : track.length - 40;
+        this.total = track.closed ? track.length * this.laps : track.finish;
         this.events = [];          // { player, text, kind, t }
         this.slowmo = 0;
         this.q = {};
@@ -133,7 +133,15 @@ export class Race {
             return;
         }
         let steer, throttle, brake, hb = 0, wantNitro = 0;
-        if (r.player >= 0 && !r.assist.easy) {
+        if (r.player >= 0 && r.finished) {
+            // after the line the car drives itself: keeps its lane, lifts off and brakes smoothly to a stop before the
+            // end of the run-off (harder only when the road left is short)
+            const out = this.aiDrive(r, dt);
+            steer = out.steer; throttle = 0;
+            const left = T.closed ? 1e9 : T.length - 60 - r.s, sp = Math.max(0, v.fwdSpeed);
+            const need = sp * sp / (2 * Math.max(20, left)) / (9.81 * 1.15);   // brake share that stops in time
+            brake = sp > 0.5 ? Math.min(1, Math.max(0.36, need * 1.2)) : 0;   // ~4 m/s2: a firm, normal stop; stopped: the auto hold keeps it there (a held brake would select reverse)
+        } else if (r.player >= 0 && !r.assist.easy) {
             const c = r.ctl;
             steer = c.steer; throttle = r.assist.auto ? Math.max(c.throttle, c.brake > 0.1 ? 0 : 1) : c.throttle;
             brake = c.brake; hb = c.handbrake; wantNitro = c.nitro;
@@ -291,6 +299,8 @@ export class Race {
         if (this.state !== 'race') return;
         if (!r.finished && r.prog >= this.total) {
             r.finished = true; r.finishTime = this.time;
+            // the car drives itself from here: it keeps the lane it is in
+            if (r.player >= 0) { const h = r.veh.hint; r.lane = Math.max(-T.hr[h] + 2.5, Math.min(T.hl[h] - 2.5, r.veh.trackQ_d)); }
             if (r.player >= 0) this.say(r, 'FINISH', 'finish');
         }
         if (r.hitCool > 0) r.hitCool -= dt;

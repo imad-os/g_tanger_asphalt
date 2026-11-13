@@ -59,6 +59,12 @@ the app in the App Store Manager once GitHub Pages has published it.
   screen lists what opened. Check: `tests/career-unlock.mjs [folder]`.
 - Engine sound must stay smooth: `tests/engine-sound.mjs` fails on steady static (intake noise is band-passed, output low-passed);
   rival voices are made once per rival car kind in `Sound.begin`, never created / dropped during a race.
+- Finish (owner request 2026-11-13): open routes go on 500+ m past the finish on the real road (`runOff` in
+  tools/build-routes.mjs, meta `finish`, `Track.finish`); after the line the player's car drives itself (`Race.drive`, lane kept,
+  ~4 m/s2 stop, auto hold, never reverse); results show once every player's car has stopped. Check: `tests/finish-runoff.mjs [folder]`.
+- Tangier TAXI (imad-os/g_taxi) copies the driving core (vehicle, collide, shaders, carview, camera, fx, audio, assets, tools
+  geo/terrain) from this repo; g_taxi's core/src/vehicle.js has additive manual-gearbox code: take it as the base (or diff)
+  before changing vehicle.js here, so both copies stay the same.
 - Cars: everyday cars first (owner request 2026-11-07); `city` = the owner's own car, detailed model built in
   `tools/model-city.mjs` from their photos (white, red roof; `roof` colour
   per car, `roofY` from tools/build-models.mjs). Original names only, no makers' names or badges.
